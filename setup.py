@@ -7,8 +7,14 @@ README = open(os.path.join(here, 'README.txt')).read()
 CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 requires = [
+    'colander',
+    'pyes',
+    'pymongo',
     'pyramid',
     'pyramid_debugtoolbar',
+    'pyramid_zcml',
+    'pytz',
+    'thrift',
     'waitress',
     ]
 
@@ -22,10 +28,10 @@ setup(name='Audrey',
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
         ],
-      author='',
-      author_email='',
+      author='Sam Brauer',
+      author_email='sam.brauer@gmail.com',
       url='',
-      keywords='web pyramid pylons',
+      keywords='web pyramid pylons mongodb mpymongo elasticsearch',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
