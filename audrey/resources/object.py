@@ -1,5 +1,6 @@
 import colander
 from audrey import dateutil
+from audrey.htmlutil import html_to_text
 from copy import deepcopy
 import datetime
 
@@ -13,7 +14,11 @@ class BaseObject(object):
     # BaseObject that:
     # - override _object_type; this string should uniquely identify the Object
     #   type within the context of a given Audrey application
-    # - override get_schema() to return a colander schema for the type
+    # - override get_class_schema() to return a colander schema for the type.
+    #   Audrey makes use of the following custom SchemaNode kwargs
+    #   for String nodes:
+    #   - include_in_text: boolean, defaults to True; if True, the value will be included in Elastic's full text index.
+    #   - is_html: boolean, defaults to False; if True, the value will be stripped of html markup before being indexed in Elastic.
     # If the type has some non-schema attributes that you store in Mongo,
     # override get_nonschema_values() and set_nonschema_values().
 
@@ -24,7 +29,7 @@ class BaseObject(object):
     # pyramid.security.authenticated_userid(request)).
     # Could be handy for default values, vocabulary lists, etc.
     @classmethod
-    def get_schema(cls, request=None):
+    def get_class_schema(cls, request=None):
         return colander.SchemaNode(colander.Mapping())
 
     # kwargs should be a dictionary of attribute names and values
@@ -34,6 +39,9 @@ class BaseObject(object):
         if kwargs:
             self.set_schema_values(**kwargs)
             self.set_nonschema_values(**kwargs)
+
+    def get_schema(self):
+        return self.get_class_schema(self.request)
 
     def get_schema_names(self):
         return [node.name for node in self.get_schema().children]
@@ -58,7 +66,7 @@ class BaseObject(object):
 
     def get_schema_values(self):
         """ Return a dictionary of this object's schema names and values.
-        (Note tha values are deep copies, so modifying them won't affect
+        (Note that values are deep copies, so modifying them won't affect
         the Object instance.)
         """
         values = {}
@@ -70,29 +78,82 @@ class BaseObject(object):
     def get_mongo_collection(self):
         return self.__parent__.get_mongo_collection()
 
+    def get_elastic_connection(self):
+        return self.__parent__.get_elastic_connection()
+
+    def get_elastic_index_name(self):
+        return self.__parent__.get_elastic_index_name()
+
+    def get_elastic_doctype(self):
+        return self.__parent__.get_elastic_doctype()
+
     def _get_mongo_save_doc(self):
         doc = self.get_nonschema_values()
         doc.update(self.get_schema_values())
         return _mongify_values(doc)
 
-    def save(self, set_modified=True):
+    def save(self, set_modified=True, index=True):
         if set_modified:
             self._modified = dateutil.utcnow()
             if not getattr(self, '_created', None): self._created = self._modified
         doc = self._get_mongo_save_doc()
         _id = self.get_mongo_collection().save(doc, safe=True)
         if not self._id: self._id = _id
+        if index: self.index()
 
     def load_mongo_doc(self, doc):
         clean = _demongify_values(doc)
         self.set_schema_values(**clean)
         self.set_nonschema_values(**clean)
 
-    # Override this to do any pre-deletion cleanup
     def _pre_delete(self):
-        pass
+        self.unindex()
 
-# FIXME: add elastic support
+    def index(self):
+        if not self.__parent__._use_elastic: return
+        doc = self.get_elastic_index_doc()
+        self.get_elastic_connection().index(doc, self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
+
+    def unindex(self):
+        if not self.__parent__._use_elastic: return
+        try:
+            self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
+        except pyes.exceptions.NotFoundException, e:
+            pass
+
+    def get_elastic_index_doc(self):
+        return dict(
+            _created = self._created,
+            _modified = self._modified,
+            text = self.get_fulltext_to_index(),
+        )
+
+    def get_fulltext_to_index(self):
+        return '\n'.join(self._get_text_values_for_schema_node(self.get_schema(), self.get_schema_values()))
+
+    def _get_text_values_for_schema_node(self, node, value):
+        result = []
+        if not value: return result
+        if type(node.typ) == colander.Mapping:
+            for cnode in node.children:
+                name = cnode.name
+                val = value.get(name, None)
+                if val:
+                    result += self._get_text_values_for_schema_node(cnode, val)
+        elif type(node.typ) == colander.Sequence:
+            if node.children:
+                cnode = node.children[0]
+                for val in value:
+                    result += self._get_text_values_for_schema_node(cnode, val)
+        elif type(node.typ) == colander.String:
+            if getattr(node, 'include_in_text', True):
+                #if type(node.widget) == deform.widget.RichTextWidget:
+                if getattr(node, 'is_html', False):
+                    value = html_to_text(value, 0)
+                if value: result.append(value)
+        #elif type(node.typ) == deform.FileData:
+        #    pass # FIXME: handle PDF, Word, etc?
+        return result
 
 class NamedObject(BaseObject):
 
@@ -103,6 +164,11 @@ class NamedObject(BaseObject):
 
     def set_nonschema_values(self, **kwargs):
         self.__name__ = kwargs.get('__name__')
+
+    def get_elastic_index_doc(self):
+        result = BaseObject.get_elastic_index_doc(self)
+        result['__name__'] = self.__name__
+        return result
 
 
 # Crawl over node and make sure all types are compatible with pymongo.

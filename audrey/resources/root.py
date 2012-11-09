@@ -39,6 +39,15 @@ class Root(object):
             raise KeyError
         return child
 
+    def get_child_names(self):
+        return self._collection_classes_by_name.keys()
+
+    def get_children(self):
+        result = []
+        for name in self.get_child_names():
+            result.append(self[name])
+        return result
+
     @reify
     def _mongo_db(self):
         settings = self.request.registry.settings
@@ -46,5 +55,11 @@ class Root(object):
 
     def get_mongo_collection(self, coll_name):
         return self._mongo_db[coll_name]
+    
+    def get_elastic_connection(self):
+        return self.request.registry.settings['elastic_conn']
+    
+    def get_elastic_index_name(self):
+        return self.request.registry.settings['elastic_name']
 
     # FIXME: add search related stuff

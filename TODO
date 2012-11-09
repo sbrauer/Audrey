@@ -1,0 +1,20 @@
+[ ] Start unittests!!!  Run nose coverage.
+
+[x] Implement basic Mongo stuff
+
+[ ] Implement Elastic stuff
+
+[ ] Implement RESTful views
+
+[ ] Add support for files and GridFS (and Elastic attachment support?)
+
+[ ] In REST views, treat files as separate resources.
+    Example: /people/sam-brauer/photo (GET, PUT, DELETE)
+    If an object has a list of files, support POST too:
+    Example: /galleries/robots/photos/
+
+[ ] Setup a pcreate scaffold, and create a demo app that uses it.
+    The demo app should include a frontend that uses Knockout.
+    What should the demo app be?  A blog maybe?
+
+[ ]  take a closer look at pyelasticsearch as an alternative to pyes

@@ -40,9 +40,12 @@ def main(global_config, **settings):
 def ensure_mongo_indexes(conn, db_name):
     db = conn[db_name]
     for coll_cls in root.Root.get_collection_classes():
-        cls.ensure_mongo_indexes(db)
+        mongo_coll = db[cls._collection_name]
+        for (key_or_list, kwargs) in cls.get_mongo_indexes():
+            mongo_coll.ensure_index(key_or_list, **kwargs)
 
 def ensure_elastic_index(conn, idx_name):
     conn.create_index_if_missing(idx_name)
     for coll_cls in root.Root.get_collection_classes():
-        cls.put_elastic_mappings(conn, idx_name)
+        if coll_cls._use_elastic:
+            conn.put_mapping(cls._collection_name(), {'properties':cls.get_elastic_mapping()}, [idx_name])

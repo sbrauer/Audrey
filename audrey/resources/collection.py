@@ -13,12 +13,17 @@ class BaseCollection(object):
     #   the get_object_classes() class method.
     #   Either way, get_object_classes() should return 
     #   a sequence of Object classes stored in this collection.
+    # - override _use_elastic = False, if Elastic indexing isn't desired.
     # If Mongo indexes or Elastic mappings are desired, override
-    # ensure_mongo_indexes() and/or put_elastic_mappings().
+    # get_mongo_indexes() and/or get_elastic_mapping().
 
     _collection_name = 'base_collection'
 
     _object_classes = ()
+
+    # Set this to False if you don't care about using ElasticSearch
+    # for this collection.
+    _use_elastic = True
 
     _ID_FIELD = '_id'
 
@@ -30,14 +35,26 @@ class BaseCollection(object):
     def get_object_classes(cls):
         return cls._object_classes
 
+    # Return a list of data about the desired Mongo indexes for this collection.
+    # The list should contain two-item tuples with data to be passed
+    # to pymongo's Collection.ensure_index() method.
+    # The first item is the ensure_index key_or_list parm.
+    # The second items is a dictionary that will be passed as kwargs.
+    # See http://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.ensure_index
     @classmethod
-    def ensure_mongo_indexes(cls, db):
-        pass
+    def get_mongo_indexes(cls):
+        return []
 
+    # Return a dictionary representing ElasticSearch mapping properties
+    # for this collection.
+    # See http://www.elasticsearch.org/guide/reference/mapping/
     @classmethod
-    def put_elastic_mappings(cls, conn, idx_name):
-        # FIXME: can we determine these by inspecting get_object_classes() ?
-        pass
+    def get_elastic_mapping(cls):
+        mapping = {}
+        mapping['text'] = dict(type='string', include_in_all=True)
+        mapping['_created'] = dict(type='date', format='dateOptionalTime', include_in_all=False)
+        mapping['_modified'] = dict(type='date', format='dateOptionalTime', include_in_all=False)
+        return mapping
 
     def __init__(self, request):
         self.request = request
@@ -50,6 +67,15 @@ class BaseCollection(object):
 
     def get_mongo_collection(self):
         return self.__parent__.get_mongo_collection(self._collection_name)
+
+    def get_elastic_connection(self):
+        return self.__parent__.get_elastic_connection()
+
+    def get_elastic_index_name(self):
+        return self.__parent__.get_elastic_index_name()
+
+    def get_elastic_doctype(self):
+        return self._collection_name
 
     def construct_child_from_mongo_doc(self, doc):
         #obj = self._get_child_class_from_mongo_doc(doc)(self.request, **doc)
@@ -161,7 +187,8 @@ class BaseCollection(object):
             collection_type = str(self.__class__)
         return "Cannot add %s to %s." % (child_type, collection_type)
 
-    # Note that the add_child() method calls the child's save() method.
+    # Note that the add_child() method calls the child's save() method,
+    # persisting it in Mongo (and indexing in Elastic).
     def add_child(self, child):
         error = self.veto_add_child(child)
         if error: raise Veto(error)
@@ -181,6 +208,22 @@ class BaseCollection(object):
         else:
             return 0
 
+    def _clear_elastic(self):
+        """ Delete all documents from Elastic for this Collection's doctype.
+        """
+        self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), None)
+
+    # Returns the number of objects indexed.
+    def _reindex_all(self, clear=False):
+        if clear:
+            self._clear_elastic()
+        count = 0
+        if self._use_elastic:
+            for child in self.get_children_lazily():
+                child.index()
+                count += 1
+        return count
+
 class NamingCollection(BaseCollection):
 
     _collection_name = 'naming_collection'
@@ -188,9 +231,15 @@ class NamingCollection(BaseCollection):
     _NAME_FIELD = '__name__'
 
     @classmethod
-    def ensure_mongo_indexes(cls, db):
-        coll = db[cls._collection_name] 
-        coll.ensure_index([('__name__', pymongo.ASCENDING)], unique=True)
+    def get_mongo_indexes(cls):
+        indexes = BaseCollection.get_mongo_indexes(cls)
+        indexes.append(([('__name__', pymongo.ASCENDING)], dict(unique=True)))
+
+    @classmethod
+    def get_elastic_mapping(cls):
+        mapping = BaseCollection.get_elastic_mapping(cls)
+        mapping['__name__'] = dict(type='string', include_in_all=False, index='not_analyzed')
+        return mapping
 
     def _get_mongo_query_spec_for_name(self, name):
         return {self._NAME_FIELD: name}
