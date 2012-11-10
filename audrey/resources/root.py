@@ -1,4 +1,7 @@
 from pyramid.decorator import reify
+from bson.objectid import ObjectId
+import pyes
+from audrey import sortutil
 
 class Root(object):
 
@@ -62,4 +65,97 @@ class Root(object):
     def get_elastic_index_name(self):
         return self.request.registry.settings['elastic_name']
 
-    # FIXME: add search related stuff
+    def get_object_for_collection_and_id(self, collection_name, id):
+        coll = self.get_child(collection_name)
+        return coll.get_child_by_id(id)
+
+    # FIXME: search related stuff (possibly refactor w/ better names)
+
+    def search_raw(self, query=None, doc_types=None, **query_parms):
+        """ A thin wrapper around pyes.ES.search_raw().
+        query must be a Search object, a Query object, or a custom dictionary of search parameters using the query DSL to be passed directly.
+
+        Returns a dictionary like pyes.ES.search_raw().
+        Keys are [u'hits', u'_shards', u'took', u'timed_out'].
+        result['hits'] has the keys: [u'hits', u'total', u'max_score']
+        
+        result['took'] -> search time in ms
+        result['hits']['total'] -> total number of hits
+        result['hits']['hits'] -> list of hit dictionaries, each with the keys: [u'_score', u'_type', u'_id', u'_source', u'_index', u'highlight']
+        Although if the fields kwarg is a list of field names (instead 
+        of the default value None), instead of a '_source' key, each hit will
+        have a '_fields' key whose value is a dictionary of the requested fields.
+        
+        The "highlight" key will only be present if highlight_fields were used
+        and there was a match in at least one of those fields.
+        In that case, the value of "highlight" will be dictionary of strings.
+        Each dictionary key is a field name and each string is an HTML fragment
+        where the matched term is in an <em> tag.
+        """
+        return self.get_elastic_connection().search_raw(query or {}, indices=(self.get_elastic_index_name(),), doc_types=doc_types, **query_parms)
+
+    def get_objects_and_highlights_for_raw_search_results(self, results):
+        """ Given a pyes result dictionary (such as returned by search_raw(),
+        return a dictionary with the keys:
+        "total": total number of matching hits
+        "took": search time in ms
+        "items": a list of dictionaries, each with the keys "object" and highlight"
+        """
+        items = []
+        for hit in results['hits']['hits']:
+            _id = ObjectId(hit['_id'])
+            collection_name = hit['_type']
+            obj = self.get_object_for_collection_and_id(collection_name, _id)
+            if obj:
+                items.append(dict(object=obj, highlight=hit.get('highlight')))
+        return dict(
+            items = items,
+            total = results['hits']['total'],
+            took = results['took'],
+        )
+
+    def get_objects_for_raw_search_results(self, results):
+        """ Given a pyes result dictionary (such as returned by search_raw(),
+        return a dictionary with the keys:
+        "total": total number of matching hits
+        "took": search time in ms
+        "items": a list of Objects
+        """
+        ret = self.get_objects_and_highlights_for_raw_search_results(results)
+        ret['items'] = [item['object'] for item in ret['items']]
+        return ret
+
+    def get_objects_and_highlights_for_query(self, query=None, doc_types=None, **query_parms):
+        return self.get_objects_and_highlights_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
+
+    def get_objects_for_query(self, query=None, doc_types=None, **query_parms):
+        return self.get_objects_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
+
+    def basic_fulltext_search(self, search_string='', collection_names=None, start=0, size=10, sort=None, highlight_fields=('text',)):
+        """ A functional basic full text search.
+        Also a good example of using Root's other search methods.
+
+        All parms are optional...
+        query - query string that may contain wildcards or boolean operators
+        collection_names - use to restrict search to specific Collections
+        start and size - used for batching/pagination
+        sort - a sortutil.SortSpec string
+        highlight_fields - a list of Elastic mapping fields in which to highlight search_string matches
+
+        Returns a dictionary like get_objects_and_highlights_for_raw_search_results.
+        """
+        search_string = search_string.strip()
+        if search_string:
+            query = pyes.StringQuery(search_string)
+        else:
+            query = pyes.MatchAllQuery()
+        # Set fields=[] since we only need _id and _type (which are always
+        # in Elastic results) to get the objects out of MongoDB.
+        # Retrieving _source would just waste resources.
+        search = pyes.Search(query=query, fields=[], start=start, size=size)
+        if highlight_fields:
+            for hf in highlight_fields:
+                search.add_highlight(hf)
+        elastic_sort = sort and sortutil.sort_string_to_elastic(sort) or None
+        return self.get_objects_and_highlights_for_query(query=search, doc_types=collection_names, sort=elastic_sort)
+
