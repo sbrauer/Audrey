@@ -17,4 +17,6 @@
     The demo app should include a frontend that uses Knockout.
     What should the demo app be?  A blog maybe?
 
+[ ] Implement HierarchicalCollection and FolderObject
+
 [ ] Take a closer look at pyelasticsearch as an alternative to pyes
