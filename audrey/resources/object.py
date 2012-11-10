@@ -32,6 +32,10 @@ class BaseObject(object):
     def get_class_schema(cls, request=None):
         return colander.SchemaNode(colander.Mapping())
 
+    # Should this Object use Elastic?
+    # Note that this setting only matters if the Collection's _use_elastic=True.
+    _use_elastic = True
+
     # kwargs should be a dictionary of attribute names and values
     # The values should be "demongified".
     def __init__(self, request, **kwargs):
@@ -39,6 +43,9 @@ class BaseObject(object):
         if kwargs:
             self.set_schema_values(**kwargs)
             self.set_nonschema_values(**kwargs)
+
+    def use_elastic(self):
+        return self.__parent__._use_elastic and self._use_elastic
 
     def get_schema(self):
         return self.get_class_schema(self.request)
@@ -110,12 +117,12 @@ class BaseObject(object):
         self.unindex()
 
     def index(self):
-        if not self.__parent__._use_elastic: return
+        if not self.use_elastic(): return
         doc = self.get_elastic_index_doc()
         self.get_elastic_connection().index(doc, self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
 
     def unindex(self):
-        if not self.__parent__._use_elastic: return
+        if not self.use_elastic(): return
         try:
             self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
         except pyes.exceptions.NotFoundException, e:

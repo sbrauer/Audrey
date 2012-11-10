@@ -159,3 +159,17 @@ class Root(object):
         elastic_sort = sort and sortutil.sort_string_to_elastic(sort) or None
         return self.get_objects_and_highlights_for_query(query=search, doc_types=collection_names, sort=elastic_sort)
 
+    def _clear_elastic(self):
+        """ Delete all documents from Elastic for all Collections.
+        """
+        for coll in self.get_children():
+            coll._clear_elastic()
+
+    # Returns the number of objects indexed.
+    def _reindex_all(self, clear=False):
+        """ Reindex all documents in Elastic for all Collections.
+        """
+        count = 0
+        for coll in self.get_children():
+            count += coll._reindex_all(clear=clear)
+        return count
