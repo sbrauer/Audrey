@@ -51,10 +51,15 @@ class Root(object):
             result.append(self[name])
         return result
 
+    def get_mongo_connection(self):
+        return self.request.registry.settings['mongo_conn']
+
+    def get_mongo_db_name(self):
+        return self.request.registry.settings['mongo_name']
+
     @reify
     def _mongo_db(self):
-        settings = self.request.registry.settings
-        return settings['mongo_conn'][settings['mongo_name']]
+        return self.get_mongo_connection()[self.get_mongo_db_name()]
 
     def get_mongo_collection(self, coll_name):
         return self._mongo_db[coll_name]
@@ -68,8 +73,6 @@ class Root(object):
     def get_object_for_collection_and_id(self, collection_name, id):
         coll = self.get_child(collection_name)
         return coll.get_child_by_id(id)
-
-    # FIXME: search related stuff (possibly refactor w/ better names)
 
     def search_raw(self, query=None, doc_types=None, **query_parms):
         """ A thin wrapper around pyes.ES.search_raw().
@@ -137,14 +140,14 @@ class Root(object):
     def get_objects_for_query(self, query=None, doc_types=None, **query_parms):
         return self.get_objects_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
 
-    def basic_fulltext_search(self, search_string='', collection_names=None, start=0, size=10, sort=None, highlight_fields=('text',)):
+    def basic_fulltext_search(self, search_string='', collection_names=None, skip=0, limit=10, sort=None, highlight_fields=('text',)):
         """ A functional basic full text search.
         Also a good example of using Root's other search methods.
 
         All parms are optional...
         query - query string that may contain wildcards or boolean operators
         collection_names - use to restrict search to specific Collections
-        start and size - used for batching/pagination
+        skip and limit - used for batching/pagination
         sort - a sortutil.SortSpec string
         highlight_fields - a list of Elastic mapping fields in which to highlight search_string matches
 
@@ -158,7 +161,7 @@ class Root(object):
         # Set fields=[] since we only need _id and _type (which are always
         # in Elastic results) to get the objects out of MongoDB.
         # Retrieving _source would just waste resources.
-        search = pyes.Search(query=query, fields=[], start=start, size=size)
+        search = pyes.Search(query=query, fields=[], start=skip, size=limit)
         if highlight_fields:
             for hf in highlight_fields:
                 search.add_highlight(hf)

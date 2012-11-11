@@ -45,7 +45,7 @@ class BaseObject(object):
             self.set_nonschema_values(**kwargs)
 
     def use_elastic(self):
-        return self.__parent__._use_elastic and self._use_elastic
+        return self._use_elastic and self.__parent__._use_elastic
 
     def get_schema(self):
         return self.get_class_schema(self.request)
@@ -94,7 +94,7 @@ class BaseObject(object):
     def get_elastic_doctype(self):
         return self.__parent__.get_elastic_doctype()
 
-    def _get_mongo_save_doc(self):
+    def get_mongo_save_doc(self):
         doc = self.get_nonschema_values()
         doc.update(self.get_schema_values())
         return _mongify_values(doc)
@@ -103,7 +103,7 @@ class BaseObject(object):
         if set_modified:
             self._modified = dateutil.utcnow()
             if not getattr(self, '_created', None): self._created = self._modified
-        doc = self._get_mongo_save_doc()
+        doc = self.get_mongo_save_doc()
         _id = self.get_mongo_collection().save(doc, safe=True)
         if not self._id: self._id = _id
         if index: self.index()
