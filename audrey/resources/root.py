@@ -92,6 +92,12 @@ class Root(object):
         Each dictionary key is a field name and each string is an HTML fragment
         where the matched term is in an <em> tag.
         """
+        # Normalize query_parms by removing items where the value is None.
+        keys = query_parms.keys()
+        for key in keys:
+            val = query_parms[key]
+            if val == None:
+                del query_parms[key]
         return self.get_elastic_connection().search_raw(query or {}, indices=(self.get_elastic_index_name(),), doc_types=doc_types, **query_parms)
 
     def get_objects_and_highlights_for_raw_search_results(self, results):
