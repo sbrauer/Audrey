@@ -15,13 +15,18 @@ class ViewTests(unittest.TestCase):
         info = my_view(request)
         self.assertEqual(info['project'], 'Audrey')
 
+
+def _getBaseObjectClass():
+    from audrey import resources
+    return resources.object.BaseObject
+
 def _getExampleObjectClass():
     from audrey import resources
     import colander
     class ExampleObject(resources.object.BaseObject):
         _object_type = 'example_object'
         @classmethod
-        def get_schema(cls, request=None):
+        def get_class_schema(cls, request=None):
             schema = colander.SchemaNode(colander.Mapping())
             schema.add(colander.SchemaNode(colander.String(), name='title'))
             schema.add(colander.SchemaNode(colander.String(), name='body'))
@@ -46,6 +51,9 @@ def _makeOneRoot(request):
 
 def _makeOneObject(request, title='A Title', body='Some body.'):
     return _getExampleObjectClass()(request, title=title, body=body)
+
+def _makeOneCollection(request):
+    return _getExampleCollectionClass()(request)
 
 class UtilTests(unittest.TestCase):
 
@@ -93,9 +101,39 @@ class UtilTests(unittest.TestCase):
         self.assertTrue(str(sortutil.SortSpec('foo,-bar,+baz')), 'foo,-bar,baz')
 
 class RootTests(unittest.TestCase):
-
     def test_constructor(self):
         request = testing.DummyRequest()
         instance = _makeOneRoot(request)
         self.assertEqual(instance.__name__, "")
         self.assertEqual(instance.__parent__, None)
+
+class ObjectTests(unittest.TestCase):
+    def test_get_schema(self):
+        self.assertEqual(len(_getBaseObjectClass().get_class_schema().children), 0)
+        self.assertEqual(len(_getExampleObjectClass().get_class_schema().children), 2)
+
+    def test_constructor(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request)
+        self.assertEqual(instance.title, "A Title")
+        self.assertEqual(instance._created, None)
+
+    def test_use_elastic(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request)
+        coll = _makeOneCollection(request)
+        instance.__parent__ = coll
+        self.assertTrue(instance.use_elastic())
+        coll._use_elastic = False
+        self.assertFalse(instance.use_elastic())
+
+    def test_get_nonschema_values(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request)
+        vals = instance.get_nonschema_values()
+        self.assertTrue('_id' not in vals)
+        self.assertTrue('_created' in vals)
+        instance._id = 'test'
+        vals = instance.get_nonschema_values()
+        self.assertTrue('_id' in vals)
+        
