@@ -1,7 +1,12 @@
 import pytz
 import datetime
 
-def convert_datetime(dt, tz_from, tz_to):
+def convert_aware_datetime(dt, tz_to):
+    if type(tz_to) == str:
+        tz_to = pytz.timezone(tz_to)
+    return dt.astimezone(tz_to)
+
+def convert_naive_datetime(dt, tz_from, tz_to):
     """
     Convert a naive datetime.datetime "dt" from one timezone to another.
     tz_from and tz_to may be either pytz.timezone instances, or timezone strings.
@@ -15,28 +20,19 @@ def convert_datetime(dt, tz_from, tz_to):
     Convert US/Eastern datetime to ES/Pacific:
     convert_datetime(datetime.datetime.now(), 'US/Eastern', 'US/Pacific')
     """
-    if type(tz_from) == str:
-        tz_from = pytz.timezone(tz_from)
-    if type(tz_to) == str:
-        tz_to = pytz.timezone(tz_to)
-    dt = make_naive(dt)
-    if tz_from == tz_to: return dt.replace(tzinfo=tz_to)
-    return tz_from.normalize(tz_from.localize(dt)).astimezone(tz_to)
-
-def convert_from_utc(dt, tz_to):
-    return convert_datetime(dt, pytz.utc, tz_to)
-
-def convert_to_utc(dt, tz_from):
-    return convert_datetime(dt, tz_from, pytz.utc)
+    return convert_aware_datetime(make_aware(dt, tz_from), tz_to)
 
 def make_naive(dt):
     return dt.replace(tzinfo=None)
 
-def make_aware(dt):
-    return dt.replace(tzinfo=pytz.utc)
+def make_aware(dt, tz=pytz.utc):
+    if type(tz) == str:
+        tz = pytz.timezone(tz)
+    return dt.replace(tzinfo=tz)
 
 def utcnow(zero_seconds=False):
     """ Returns a timezone aware version of utcnow.
+    (datetime.datetime.utcnow() returns a naive version.)
     If zero_seconds, the datetime will be rounded down to the minute.
     """
     now = datetime.datetime.now(pytz.utc)
