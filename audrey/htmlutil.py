@@ -14,14 +14,12 @@ import htmlentitydefs
 import re
 
 class HTML_to_text_parser(htmllib.HTMLParser):
-    def __init__(self, formatter, show_link_urls=1, skip_tags=[], unknown_entity_replacement=None):
+    def __init__(self, formatter, show_link_urls=False, skip_tags=(), unknown_entity_replacement=None):
         htmllib.HTMLParser.__init__(self, formatter)
         self.last_href = None
         self.formatter = formatter
         self.show_link_urls = show_link_urls
-        self.skip_tags = ["head", "script"]
-        for x in skip_tags:
-            if x not in self.skip_tags: self.skip_tags.append(x)
+        self.skip_tags = skip_tags
         self.unknown_entity_replacement = unknown_entity_replacement  # None signifies that the value should be passed through as-is.  In some cases, you may instead want "?" or "" or some such.
         self.skip_flag = 0
 
@@ -86,7 +84,7 @@ SELF_CLOSING_FIX_RE = re.compile(r'(\S)/>')
 
 # Assumes html is a Unicode string or UTF-8 encoded.
 # The return value is the same type as the input.
-def html_to_text(html, show_link_urls=1, skip_tags=[], unknown_entity_replacement=None):
+def html_to_text(html, show_link_urls=False, skip_tags=('head', 'script'), unknown_entity_replacement=None):
     output_unicode = False
     if type(html) == unicode:
         html = html.encode('utf-8')
@@ -107,11 +105,3 @@ def html_to_text(html, show_link_urls=1, skip_tags=[], unknown_entity_replacemen
     del textout, formtext, parser
     if output_unicode: return unicode(text, 'utf-8')
     else: return text
-
-def main():
-    # Try to read stdin
-    import sys
-    html = sys.stdin.read()
-    print html_to_text(html)
-
-if __name__ == "__main__": main()
