@@ -1,10 +1,14 @@
-[ ] Start unittests!!!  Run nose coverage.
+[ ] Keep unittests and nose coverage up to date
 
 [x] Implement basic Mongo stuff
 
 [x] Implement Elastic stuff
 
-[ ] Implement RESTful views
+[ ] Implement RESTful views (for CRUD, "forms" and search)
+
+[ ] Setup a pcreate scaffold, and create a demo app that uses it.
+    The demo app should include a frontend that uses Knockout.
+    What should the demo app be?  A blog maybe?
 
 [ ] Add support for files and GridFS (and Elastic attachment support?)
 
@@ -12,10 +16,6 @@
     Example: /people/sam-brauer/photo (GET, PUT, DELETE)
     If an object has a list of files, support POST too:
     Example: /galleries/robots/photos/
-
-[ ] Setup a pcreate scaffold, and create a demo app that uses it.
-    The demo app should include a frontend that uses Knockout.
-    What should the demo app be?  A blog maybe?
 
 [ ] Implement HierarchicalCollection and FolderObject
 
