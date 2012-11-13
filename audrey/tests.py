@@ -15,53 +15,92 @@ class ViewTests(unittest.TestCase):
         info = my_view(request)
         self.assertEqual(info['project'], 'Audrey')
 
+import datetime
+today = datetime.datetime.utcnow().date()
+today_with_time = datetime.datetime.combine(today, datetime.time())
+
 classes = {}
 
 def _getBaseObjectClass():
     from audrey import resources
     return resources.object.BaseObject
 
-def _getExampleObjectClass():
-    if 'example_object' in classes: return classes['example_object']
+def _getExampleBaseObjectClass():
+    TYPE_NAME = 'example_base_object'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
     import colander
-    class ExampleObject(resources.object.BaseObject):
-        _object_type = 'example_object'
+    class ExampleBaseObject(resources.object.BaseObject):
+        _object_type = TYPE_NAME
         @classmethod
         def get_class_schema(cls, request=None):
             schema = colander.SchemaNode(colander.Mapping())
             schema.add(colander.SchemaNode(colander.String(), name='title'))
             schema.add(colander.SchemaNode(colander.String(), name='body', is_html=True))
+            schema.add(colander.SchemaNode(colander.Date(), name='dateline'))
             schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(colander.String()), name='tags', missing=[], default=[]))
             return schema
-    classes['example_object'] = ExampleObject
-    return ExampleObject
+    classes[TYPE_NAME] = ExampleBaseObject
+    return ExampleBaseObject
 
-def _getExampleCollectionClass():
-    if 'example_collection' in classes: return classes['example_collection']
+def _getExampleBaseCollectionClass():
+    TYPE_NAME = 'example_base_collection'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
-    class ExampleCollection(resources.collection.BaseCollection):
-        _collection_name = 'example_collection'
-        _object_classes = (_getExampleObjectClass(),)
-    classes['example_collection'] = ExampleCollection
-    return ExampleCollection
+    class ExampleBaseCollection(resources.collection.BaseCollection):
+        _collection_name = TYPE_NAME
+        _object_classes = (_getExampleBaseObjectClass(),)
+    classes[TYPE_NAME] = ExampleBaseCollection
+    return ExampleBaseCollection
+
+def _getExampleNamingObjectClass():
+    TYPE_NAME = 'example_naming_object'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
+    from audrey import resources
+    import colander
+    class ExampleNamingObject(resources.object.NamedObject):
+        _object_type = TYPE_NAME
+        @classmethod
+        def get_class_schema(cls, request=None):
+            schema = colander.SchemaNode(colander.Mapping())
+            schema.add(colander.SchemaNode(colander.String(), name='title'))
+            return schema
+    classes[TYPE_NAME] = ExampleNamingObject
+    return ExampleNamingObject
+
+def _getExampleNamingCollectionClass():
+    TYPE_NAME = 'example_naming_collection'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
+    from audrey import resources
+    class ExampleNamingCollection(resources.collection.NamingCollection):
+        _collection_name = TYPE_NAME
+        _object_classes = (_getExampleNamingObjectClass(),)
+    classes[TYPE_NAME] = ExampleNamingCollection
+    return ExampleNamingCollection
 
 def _getExampleRootClass():
-    if 'example_root' in classes: return classes['example_root']
+    TYPE_NAME = 'example_root'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
     class ExampleRoot(resources.root.Root):
-        _collection_classes = (_getExampleCollectionClass(),)
-    classes['example_root'] = ExampleRoot
+        _collection_classes = (_getExampleBaseCollectionClass(), _getExampleNamingCollectionClass(), )
+    classes[TYPE_NAME] = ExampleRoot
     return ExampleRoot
 
 def _makeOneRoot(request):
     return _getExampleRootClass()(request)
 
-def _makeOneObject(request, title='A Title', body='<p>Some body.</p>', tags=set(['foo', 'bar'])):
-    return _getExampleObjectClass()(request, title=title, body=body, tags=tags)
+def _makeOneBaseObject(request, title='A Title', body='<p>Some body.</p>', dateline=today, tags=set(['foo', 'bar'])):
+    return _getExampleBaseObjectClass()(request, title=title, dateline=dateline, body=body, tags=tags)
 
-def _makeOneCollection(request):
-    return _getExampleCollectionClass()(request)
+def _makeOneBaseCollection(request):
+    return _getExampleBaseCollectionClass()(request)
+
+def _makeOneNamingObject(request, name, title='A Title'):
+    return _getExampleNamingObjectClass()(request, __name__=name, title=title)
+
+def _makeOneNamingCollection(request):
+    return _getExampleNamingCollectionClass()(request)
 
 class UtilTests(unittest.TestCase):
 
@@ -118,18 +157,18 @@ class RootTests(unittest.TestCase):
 class ObjectTests(unittest.TestCase):
     def test_get_schema(self):
         self.assertEqual(len(_getBaseObjectClass().get_class_schema().children), 0)
-        self.assertEqual(len(_getExampleObjectClass().get_class_schema().children), 3)
+        self.assertEqual(len(_getExampleBaseObjectClass().get_class_schema().children), 4)
 
     def test_constructor(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request)
+        instance = _makeOneBaseObject(request)
         self.assertEqual(instance.title, "A Title")
         self.assertEqual(instance._created, None)
 
     def test_use_elastic(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request)
-        coll = _makeOneCollection(request)
+        instance = _makeOneBaseObject(request)
+        coll = _makeOneBaseCollection(request)
         instance.__parent__ = coll
         self.assertTrue(instance.use_elastic())
         coll._use_elastic = False
@@ -137,7 +176,7 @@ class ObjectTests(unittest.TestCase):
 
     def test_get_nonschema_values(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request)
+        instance = _makeOneBaseObject(request)
         vals = instance.get_nonschema_values()
         self.assertTrue('_id' not in vals)
         self.assertTrue('_created' in vals)
@@ -147,20 +186,20 @@ class ObjectTests(unittest.TestCase):
 
     def test_get_schema_values(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request)
+        instance = _makeOneBaseObject(request)
         vals = instance.get_schema_values()
         self.assertEqual(vals['title'], 'A Title')
         self.assertEqual(vals['body'], '<p>Some body.</p>')
 
     def test_get_mongo_save_doc(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request)
+        instance = _makeOneBaseObject(request)
         doc = instance.get_mongo_save_doc()
-        self.assertEqual(doc, {'body': '<p>Some body.</p>', '_created': None, '_modified': None, 'title': 'A Title', 'tags': ['foo', 'bar']})
+        self.assertEqual(doc, {'body': '<p>Some body.</p>', '_created': None, '_modified': None, 'title': 'A Title', 'dateline': today_with_time, 'tags': ['foo', 'bar']})
 
     def test_load_mongo_doc(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request, title='x', body='x', tags=[])
+        instance = _makeOneBaseObject(request, title='x', body='x', tags=[])
         self.assertEqual(instance.title, "x")
         self.assertEqual(instance.body, "x")
         self.assertEqual(instance.tags, [])
@@ -171,7 +210,7 @@ class ObjectTests(unittest.TestCase):
 
     def test_get_elastic_index_doc(self):
         request = testing.DummyRequest()
-        instance = _makeOneObject(request)
+        instance = _makeOneBaseObject(request)
         doc = instance.get_elastic_index_doc()
         self.assertEqual(doc, {'text': 'A Title\nSome body.\nfoo\nbar', '_modified': None, '_created': None})
         
@@ -184,7 +223,8 @@ class FunctionalTests(unittest.TestCase):
             elastic_uri = "thrift://127.0.0.1:9500",
         )
         import audrey
-        self.app = audrey.main({}, **settings)
+        root_cls = _getExampleRootClass()
+        self.app = audrey.audrey_main(root_cls, root_cls, {}, **settings)
         self.mongo_conn = self.app.registry.settings['mongo_conn']
         self.elastic_conn = self.app.registry.settings['elastic_conn']
         self.settings = self.app.registry.settings
@@ -204,8 +244,8 @@ class FunctionalTests(unittest.TestCase):
 
     def test_add_child(self):
         root = _makeOneRoot(self.request)
-        collection = root['example_collection']
-        instance = _makeOneObject(self.request)
+        collection = root['example_base_collection']
+        instance = _makeOneBaseObject(self.request)
         self.assertEqual(instance._id, None)
         self.assertEqual(instance._created, None)
         self.assertEqual(instance._modified, None)
@@ -213,11 +253,13 @@ class FunctionalTests(unittest.TestCase):
         self.assertNotEqual(instance._id, None)
         self.assertNotEqual(instance._created, None)
         self.assertNotEqual(instance._modified, None)
+        self.assertEqual(instance.__name__, str(instance._id))
+        self.assertEqual(instance.__parent__, collection)
 
-    def test_crud(self):
+    def test_basic_crud(self):
         root = _makeOneRoot(self.request)
-        collection = root['example_collection']
-        instance = _makeOneObject(self.request)
+        collection = root['example_base_collection']
+        instance = _makeOneBaseObject(self.request)
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
         collection.add_child(instance)
@@ -226,7 +268,47 @@ class FunctionalTests(unittest.TestCase):
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]._id, instance._id)
+
+        # Get another copy of the same object and compare attribute vals.
+        instance2 = collection.get_child_by_name(child_name)
+        self.assertEqual(instance._id, instance2._id)
+        self.assertEqual(instance.title, instance2.title)
+        self.assertEqual(instance.body, instance2.body)
+        # Note that sets going into mongo become lists.
+        self.assertEqual(list(instance.tags), list(instance2.tags))
+        # Note that dates going into mongo become datetimes (with 0 hr,min,sec).
+        self.assertEqual(instance.dateline, instance2.dateline.date())
+        
+        # Delete the child and make sure mongo and elastic are updated.
         collection.delete_child_by_name(child_name)
         self.assertFalse(collection.has_child_with_name(child_name))
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
+
+    def test_unindex_notfound(self):
+        instance = _makeOneBaseObject(self.request)
+        root = _makeOneRoot(self.request)
+        collection = root['example_base_collection']
+        collection.add_child(instance)
+        self.assertEqual(instance.unindex(), 1)
+        self.assertEqual(instance.unindex(), 0)
+
+    def test_naming_crud(self):
+        root = _makeOneRoot(self.request)
+        collection = root['example_naming_collection']
+        name = 'name1'
+        instance = _makeOneNamingObject(self.request, name)
+        result = root.basic_fulltext_search()
+        self.assertEqual(result['total'], 0)
+        collection.add_child(instance)
+        self.assertTrue(collection.has_child_with_name(name))
+        result = root.basic_fulltext_search()
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]._id, instance._id)
+        # FIXME: do a search by name
+        collection.delete_child_by_name(name)
+        self.assertFalse(collection.has_child_with_name(name))
+        result = root.basic_fulltext_search()
+        self.assertEqual(result['total'], 0)
+    # FIXME... test renames, and test query/search results with more than one object of each type
+
