@@ -15,12 +15,14 @@ class ViewTests(unittest.TestCase):
         info = my_view(request)
         self.assertEqual(info['project'], 'Audrey')
 
+classes = {}
 
 def _getBaseObjectClass():
     from audrey import resources
     return resources.object.BaseObject
 
 def _getExampleObjectClass():
+    if 'example_object' in classes: return classes['example_object']
     from audrey import resources
     import colander
     class ExampleObject(resources.object.BaseObject):
@@ -29,28 +31,34 @@ def _getExampleObjectClass():
         def get_class_schema(cls, request=None):
             schema = colander.SchemaNode(colander.Mapping())
             schema.add(colander.SchemaNode(colander.String(), name='title'))
-            schema.add(colander.SchemaNode(colander.String(), name='body'))
+            schema.add(colander.SchemaNode(colander.String(), name='body', is_html=True))
+            schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(colander.String()), name='tags', missing=[], default=[]))
             return schema
+    classes['example_object'] = ExampleObject
     return ExampleObject
 
 def _getExampleCollectionClass():
+    if 'example_collection' in classes: return classes['example_collection']
     from audrey import resources
     class ExampleCollection(resources.collection.BaseCollection):
         _collection_name = 'example_collection'
         _object_classes = (_getExampleObjectClass(),)
+    classes['example_collection'] = ExampleCollection
     return ExampleCollection
 
 def _getExampleRootClass():
+    if 'example_root' in classes: return classes['example_root']
     from audrey import resources
     class ExampleRoot(resources.root.Root):
         _collection_classes = (_getExampleCollectionClass(),)
+    classes['example_root'] = ExampleRoot
     return ExampleRoot
 
 def _makeOneRoot(request):
     return _getExampleRootClass()(request)
 
-def _makeOneObject(request, title='A Title', body='Some body.'):
-    return _getExampleObjectClass()(request, title=title, body=body)
+def _makeOneObject(request, title='A Title', body='<p>Some body.</p>', tags=set(['foo', 'bar'])):
+    return _getExampleObjectClass()(request, title=title, body=body, tags=tags)
 
 def _makeOneCollection(request):
     return _getExampleCollectionClass()(request)
@@ -110,7 +118,7 @@ class RootTests(unittest.TestCase):
 class ObjectTests(unittest.TestCase):
     def test_get_schema(self):
         self.assertEqual(len(_getBaseObjectClass().get_class_schema().children), 0)
-        self.assertEqual(len(_getExampleObjectClass().get_class_schema().children), 2)
+        self.assertEqual(len(_getExampleObjectClass().get_class_schema().children), 3)
 
     def test_constructor(self):
         request = testing.DummyRequest()
@@ -136,4 +144,80 @@ class ObjectTests(unittest.TestCase):
         instance._id = 'test'
         vals = instance.get_nonschema_values()
         self.assertTrue('_id' in vals)
+
+    def test_get_schema_values(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request)
+        vals = instance.get_schema_values()
+        self.assertEqual(vals['title'], 'A Title')
+        self.assertEqual(vals['body'], '<p>Some body.</p>')
+
+    def test_get_mongo_save_doc(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request)
+        doc = instance.get_mongo_save_doc()
+        self.assertEqual(doc, {'body': '<p>Some body.</p>', '_created': None, '_modified': None, 'title': 'A Title', 'tags': ['foo', 'bar']})
+
+    def test_load_mongo_doc(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request, title='x', body='x', tags=[])
+        self.assertEqual(instance.title, "x")
+        self.assertEqual(instance.body, "x")
+        self.assertEqual(instance.tags, [])
+        instance.load_mongo_doc({'body': 'Some body.', '_created': None, '_modified': None, 'title': 'A Title', 'tags': ['foo', 'bar']})
+        self.assertEqual(instance.title, "A Title")
+        self.assertEqual(instance.body, "Some body.")
+        self.assertEqual(instance.tags, ['foo', 'bar'])
+
+    def test_get_elastic_index_doc(self):
+        request = testing.DummyRequest()
+        instance = _makeOneObject(request)
+        doc = instance.get_elastic_index_doc()
+        self.assertEqual(doc, {'text': 'A Title\nSome body.\nfoo\nbar', '_modified': None, '_created': None})
         
+class FunctionalTests(unittest.TestCase):
+
+    def setUp(self):
+        settings = dict(
+            mongo_uri = "mongodb://127.0.0.1",
+            mongo_name = "audrey_unittests",
+            elastic_uri = "thrift://127.0.0.1:9500",
+        )
+        import audrey
+        self.app = audrey.main({}, **settings)
+        self.mongo_conn = self.app.registry.settings['mongo_conn']
+        self.elastic_conn = self.app.registry.settings['elastic_conn']
+        self.settings = self.app.registry.settings
+        self.request = testing.DummyRequest()
+        self.request.registry = self.app.registry
+
+    def tearDown(self):
+        db = self.mongo_conn[self.settings['mongo_name']]
+        names = db.collection_names()
+        for name in names:
+            if name == 'system.indexes': continue
+            db.drop_collection(name)
+        self.mongo_conn.disconnect()
+        
+        self.elastic_conn.close_index(self.settings['elastic_name'])
+        self.elastic_conn.delete_index(self.settings['elastic_name'])
+
+    def test_add_child(self):
+        root = _makeOneRoot(self.request)
+        collection = root['example_collection']
+        instance = _makeOneObject(self.request)
+        self.assertEqual(instance._id, None)
+        collection.add_child(instance)
+        self.assertNotEqual(instance._id, None)
+
+    def test_delete_child(self):
+        root = _makeOneRoot(self.request)
+        collection = root['example_collection']
+        instance = _makeOneObject(self.request)
+        collection.add_child(instance)
+        child_name = instance.__name__
+        self.assertTrue(collection.has_child_with_name(child_name))
+        # FIXME: make sure child is in elastic
+        collection.delete_child_by_name(child_name)
+        self.assertFalse(collection.has_child_with_name(child_name))
+        # FIXME: make sure child is NOT in elastic

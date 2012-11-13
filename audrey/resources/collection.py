@@ -198,12 +198,24 @@ class BaseCollection(object):
             # We assume BaseObject.save() set the _id attribute.
             child.__name__ = str(child._id)
 
-    def delete_child(self, name):
+    def delete_child(self, child_obj):
+        child_obj._pre_delete()
+        self.get_mongo_collection().remove(dict(_id=child_obj._id), safe=True)
+
+    def delete_child_by_name(self, name):
         # Returns the number of children deleted (0 or 1).
         child = self.get_child_by_name(name)
         if child:
-            child._pre_delete()
-            self.get_mongo_collection().remove(dict(_id=child._id), safe=True)
+            self.delete_child(child)
+            return 1
+        else:
+            return 0
+
+    def delete_child_by_id(self, id):
+        # Returns the number of children deleted (0 or 1).
+        child = self.get_child_by_id(id)
+        if child:
+            self.delete_child(child)
             return 1
         else:
             return 0
