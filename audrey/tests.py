@@ -207,17 +207,26 @@ class FunctionalTests(unittest.TestCase):
         collection = root['example_collection']
         instance = _makeOneObject(self.request)
         self.assertEqual(instance._id, None)
+        self.assertEqual(instance._created, None)
+        self.assertEqual(instance._modified, None)
         collection.add_child(instance)
         self.assertNotEqual(instance._id, None)
+        self.assertNotEqual(instance._created, None)
+        self.assertNotEqual(instance._modified, None)
 
-    def test_delete_child(self):
+    def test_crud(self):
         root = _makeOneRoot(self.request)
         collection = root['example_collection']
         instance = _makeOneObject(self.request)
+        result = root.basic_fulltext_search()
+        self.assertEqual(result['total'], 0)
         collection.add_child(instance)
         child_name = instance.__name__
         self.assertTrue(collection.has_child_with_name(child_name))
-        # FIXME: make sure child is in elastic
+        result = root.basic_fulltext_search()
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]._id, instance._id)
         collection.delete_child_by_name(child_name)
         self.assertFalse(collection.has_child_with_name(child_name))
-        # FIXME: make sure child is NOT in elastic
+        result = root.basic_fulltext_search()
+        self.assertEqual(result['total'], 0)

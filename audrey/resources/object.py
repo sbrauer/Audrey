@@ -120,11 +120,13 @@ class BaseObject(object):
         if not self.use_elastic(): return
         doc = self.get_elastic_index_doc()
         self.get_elastic_connection().index(doc, self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
+        self.get_elastic_connection().refresh(self.get_elastic_index_name())
 
     def unindex(self):
         if not self.use_elastic(): return
         try:
             self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
+            self.get_elastic_connection().refresh(self.get_elastic_index_name())
         except pyes.exceptions.NotFoundException, e:
             pass
 

@@ -140,7 +140,7 @@ class Root(object):
     def get_objects_for_query(self, query=None, doc_types=None, **query_parms):
         return self.get_objects_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
 
-    def basic_fulltext_search(self, search_string='', collection_names=None, skip=0, limit=10, sort=None, highlight_fields=('text',)):
+    def basic_fulltext_search(self, search_string='', collection_names=None, skip=0, limit=10, sort=None, highlight_fields=None):
         """ A functional basic full text search.
         Also a good example of using Root's other search methods.
 
@@ -149,9 +149,10 @@ class Root(object):
         collection_names - use to restrict search to specific Collections
         skip and limit - used for batching/pagination
         sort - a sortutil.SortSpec string
-        highlight_fields - a list of Elastic mapping fields in which to highlight search_string matches
+        highlight_fields - a list of Elastic mapping fields in which to highlight search_string matches; example: ['text']
 
-        Returns a dictionary like get_objects_and_highlights_for_raw_search_results.
+        Returns a dictionary like get_objects_and_highlights_for_raw_search_results when highlight_fields.
+        Otherwise returns a dictionary like get_objects_for_raw_search_results.
         """
         search_string = search_string.strip()
         if search_string:
@@ -166,7 +167,8 @@ class Root(object):
             for hf in highlight_fields:
                 search.add_highlight(hf)
         elastic_sort = sort and sortutil.sort_string_to_elastic(sort) or None
-        return self.get_objects_and_highlights_for_query(query=search, doc_types=collection_names, sort=elastic_sort)
+        method = highlight_fields and self.get_objects_and_highlights_for_query or self.get_objects_for_query
+        return method(query=search, doc_types=collection_names, sort=elastic_sort)
 
     def _clear_elastic(self):
         """ Delete all documents from Elastic for all Collections.
