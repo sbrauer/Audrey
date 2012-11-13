@@ -3,6 +3,7 @@ from audrey import dateutil
 from audrey.htmlutil import html_to_text
 from copy import deepcopy
 import datetime
+import pyes
 
 class BaseObject(object):
     """ Base class for objects that can be stored in MongoDB.
@@ -45,6 +46,7 @@ class BaseObject(object):
             self.set_nonschema_values(**kwargs)
 
     def use_elastic(self):
+        assert getattr(self, '__parent__', None), "parentless child!"
         return self._use_elastic and self.__parent__._use_elastic
 
     def get_schema(self):
@@ -55,8 +57,8 @@ class BaseObject(object):
 
     def get_nonschema_values(self):
         values = {}
-        if self._id:
-            values['_id'] =  self._id
+        _id = getattr(self, '_id', None)
+        if _id: values['_id'] =  _id
         values['_created'] = getattr(self, '_created', None)
         values['_modified'] = getattr(self, '_modified', None)
         return values
@@ -82,30 +84,37 @@ class BaseObject(object):
                 values[name] = deepcopy(getattr(self, name))
         return values
 
+    def get_all_values(self):
+        """ Returns a dictionary of both schema and nonschema values. """
+        vals = self.get_nonschema_values()
+        vals.update(self.get_schema_values())
+        return vals
+
     def get_mongo_collection(self):
+        assert getattr(self, '__parent__', None), "parentless child!"
         return self.__parent__.get_mongo_collection()
 
     def get_elastic_connection(self):
+        assert getattr(self, '__parent__', None), "parentless child!"
         return self.__parent__.get_elastic_connection()
 
     def get_elastic_index_name(self):
+        assert getattr(self, '__parent__', None), "parentless child!"
         return self.__parent__.get_elastic_index_name()
 
     def get_elastic_doctype(self):
+        assert getattr(self, '__parent__', None), "parentless child!"
         return self.__parent__.get_elastic_doctype()
 
     def get_mongo_save_doc(self):
-        doc = self.get_nonschema_values()
-        doc.update(self.get_schema_values())
-        return _mongify_values(doc)
+        return _mongify_values(self.get_all_values())
 
     def save(self, set_modified=True, index=True):
         if set_modified:
             self._modified = dateutil.utcnow()
             if not getattr(self, '_created', None): self._created = self._modified
         doc = self.get_mongo_save_doc()
-        _id = self.get_mongo_collection().save(doc, safe=True)
-        if not self._id: self._id = _id
+        self._id = self.get_mongo_collection().save(doc, safe=True)
         if index: self.index()
 
     def load_mongo_doc(self, doc):
@@ -123,12 +132,13 @@ class BaseObject(object):
         self.get_elastic_connection().refresh(self.get_elastic_index_name())
 
     def unindex(self):
-        if not self.use_elastic(): return
+        if not self.use_elastic(): return 0
         try:
             self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
             self.get_elastic_connection().refresh(self.get_elastic_index_name())
+            return 1
         except pyes.exceptions.NotFoundException, e:
-            pass
+            return 0
 
     def get_elastic_index_doc(self):
         return dict(
@@ -172,6 +182,7 @@ class NamedObject(BaseObject):
         return values
 
     def set_nonschema_values(self, **kwargs):
+        BaseObject.set_nonschema_values(self, **kwargs)
         self.__name__ = kwargs.get('__name__')
 
     def get_elastic_index_doc(self):

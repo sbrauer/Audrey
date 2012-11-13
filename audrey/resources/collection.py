@@ -244,12 +244,13 @@ class NamingCollection(BaseCollection):
 
     @classmethod
     def get_mongo_indexes(cls):
-        indexes = BaseCollection.get_mongo_indexes(cls)
-        indexes.append(([('__name__', pymongo.ASCENDING)], dict(unique=True)))
+        indexes = BaseCollection.get_mongo_indexes()
+        indexes.append(([('__name__', 1)], dict(unique=True)))
+        return indexes
 
     @classmethod
     def get_elastic_mapping(cls):
-        mapping = BaseCollection.get_elastic_mapping(cls)
+        mapping = BaseCollection.get_elastic_mapping()
         mapping['__name__'] = dict(type='string', include_in_all=False, index='not_analyzed')
         return mapping
 
@@ -273,7 +274,7 @@ class NamingCollection(BaseCollection):
         return None
 
     def veto_add_child(self, child):
-        err = BaseCollection.veto_add_child(child)
+        err = BaseCollection.veto_add_child(self, child)
         if err: return err
         return self.veto_child_name(child.__name__)
 
