@@ -99,8 +99,8 @@ def _makeOneBaseCollection(request):
 def _makeOneNamedObject(request, name, title='A Title'):
     return _getExampleNamedObjectClass()(request, __name__=name, title=title)
 
-def _makeOneNamingCollection(request):
-    return _getExampleNamingCollectionClass()(request)
+#def _makeOneNamingCollection(request):
+#    return _getExampleNamingCollectionClass()(request)
 
 class UtilTests(unittest.TestCase):
 
@@ -154,6 +154,25 @@ class RootTests(unittest.TestCase):
         instance = _makeOneRoot(request)
         self.assertEqual(instance.__name__, "")
         self.assertEqual(instance.__parent__, None)
+
+    def test_dupe_collections(self):
+        request = testing.DummyRequest()
+        from audrey import resources
+        class BadRoot(resources.root.Root):
+            _collection_classes = (_getExampleBaseCollectionClass(), _getExampleBaseCollectionClass())
+        with self.assertRaises(ValueError) as cm:
+            root = BadRoot(request)
+        self.assertEqual(cm.exception.args[0], '''Non-unique collection name: example_base_collection''')
+
+    def test_child_getters(self):
+        request = testing.DummyRequest()
+        root = _makeOneRoot(request)
+        self.assertEqual(root.get_child_names(), ['example_base_collection', 'example_naming_collection'])
+        with self.assertRaises(KeyError):
+            root['foo']
+        self.assertEqual(root['example_base_collection'].__class__, _getExampleBaseCollectionClass())
+        self.assertEqual(root['example_naming_collection'].__class__, _getExampleNamingCollectionClass())
+        self.assertEqual([x.__class__ for x in root.get_children()], [_getExampleBaseCollectionClass(), _getExampleNamingCollectionClass()])
 
 class CollectionTests(unittest.TestCase):
 
@@ -237,6 +256,7 @@ class ObjectTests(unittest.TestCase):
         doc = instance.get_elastic_index_doc()
         self.assertEqual(doc, {'text': 'A Title\nSome body.\nfoo\nbar', '_modified': None, '_created': None})
         
+# The following tests need access to Mongo and Elastic servers.
 class FunctionalTests(unittest.TestCase):
 
     def setUp(self):
@@ -255,6 +275,9 @@ class FunctionalTests(unittest.TestCase):
         self.request.registry = self.app.registry
 
     def tearDown(self):
+        #self.mongo_conn.drop_database(self.settings['mongo_name'])
+        # Dropping all the non-system Mongo collections instead of dropping
+        # the database allows the tests to run around twice as fast.
         db = self.mongo_conn[self.settings['mongo_name']]
         names = db.collection_names()
         for name in names:
@@ -408,23 +431,48 @@ class FunctionalTests(unittest.TestCase):
 
     def test_indexing(self):
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
-        instance1 = _makeOneBaseObject(self.request, title='Instance #1')
-        instance2 = _makeOneBaseObject(self.request, title='Instance #2')
-        instance3 = _makeOneBaseObject(self.request, title='Instance #3')
+        base_coll = root['example_base_collection']
+        baseinstance1 = _makeOneBaseObject(self.request, title='Base Instance One')
+        baseinstance2 = _makeOneBaseObject(self.request, title='Base Instance Two')
+        baseinstance3 = _makeOneBaseObject(self.request, title='Base Instance Three')
         self.assertEqual(root.search_raw()['hits']['total'], 0)
-        coll.add_child(instance1)
+        base_coll.add_child(baseinstance1)
         self.assertEqual(root.search_raw()['hits']['total'], 1)
-        coll.add_child(instance2)
+        base_coll.add_child(baseinstance2)
         self.assertEqual(root.search_raw()['hits']['total'], 2)
-        coll.add_child(instance3)
+        base_coll.add_child(baseinstance3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
-        coll._clear_elastic()
+        base_coll._clear_elastic()
         self.assertEqual(root.search_raw()['hits']['total'], 0)
-        self.assertEqual(coll._reindex_all(), 3)
+        self.assertEqual(base_coll._reindex_all(), 3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
-        self.assertEqual(coll._reindex_all(clear=True), 3)
+        self.assertEqual(base_coll._reindex_all(clear=True), 3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
+
+        name_coll = root['example_naming_collection']
+        namedinstance1 = _makeOneNamedObject(self.request, name='name1', title='Named Instance One')
+        namedinstance2 = _makeOneNamedObject(self.request, name='name2', title='Named Instance Two')
+        namedinstance3 = _makeOneNamedObject(self.request, name='name3', title='Named Instance Three')
+        name_coll.add_child(namedinstance1)
+        name_coll.add_child(namedinstance2)
+        name_coll.add_child(namedinstance3)
+        self.assertEqual(root.search_raw()['hits']['total'], 6)
+        root._clear_elastic()
+        self.assertEqual(root.search_raw()['hits']['total'], 0)
+        root._reindex_all()
+        self.assertEqual(root.search_raw()['hits']['total'], 6)
+        result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], sort='_created')
+        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['items'][0]['object']._id, baseinstance3._id)
+        self.assertEqual(result['items'][1]['object']._id, namedinstance3._id)
+        self.assertEqual(result['items'][0]['highlight'], {u'text': [u'Base Instance <em>Three</em>\nSome body.\nfoo\nbar']})
+        self.assertEqual(result['items'][1]['highlight'], {u'text': [u'Named Instance <em>Three</em>']})
+        result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], collection_names=['example_naming_collection'])
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]['object']._id, namedinstance3._id)
+        result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], collection_names=['example_base_collection'])
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]['object']._id, baseinstance3._id)
 
     def test_naming_crud(self):
         root = _makeOneRoot(self.request)
@@ -478,6 +526,4 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(coll.rename_child(name1, name2), 1)
         self.assertFalse(coll.has_child_with_name(name1))
         self.assertTrue(coll.has_child_with_name(name2))
-
-    # FIXME... test query/search results with more than one object of each type
 

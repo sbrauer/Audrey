@@ -2,6 +2,7 @@ from pyramid.decorator import reify
 from bson.objectid import ObjectId
 import pyes
 from audrey import sortutil
+from collections import OrderedDict
 
 class Root(object):
 
@@ -21,7 +22,7 @@ class Root(object):
         self.request = request
         self.__name__ = ''
         self.__parent__ = None
-        self._collection_classes_by_name = {}
+        self._collection_classes_by_name = OrderedDict()
         for coll_cls in self.get_collection_classes():
             coll_name = coll_cls._collection_name
             if coll_name in self._collection_classes_by_name:

@@ -1,5 +1,6 @@
 from bson.objectid import ObjectId
 from audrey.exceptions import Veto
+from collections import OrderedDict
 import string
 
 class BaseCollection(object):
@@ -58,7 +59,7 @@ class BaseCollection(object):
 
     def __init__(self, request):
         self.request = request
-        self._object_classes_by_type = {}
+        self._object_classes_by_type = OrderedDict()
         for obj_cls in self.get_object_classes():
             obj_type = obj_cls._object_type
             if obj_type in self._object_classes_by_type:

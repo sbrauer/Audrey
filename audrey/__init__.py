@@ -52,5 +52,5 @@ def ensure_elastic_index(conn, idx_name, root_cls):
         if coll_cls._use_elastic:
             conn.put_mapping(coll_cls._collection_name, {'properties':coll_cls.get_elastic_mapping()}, [idx_name])
 
-def main(global_config, **settings):
+def main(global_config, **settings):  # pragma: no cover
     return audrey_main(root_factory, root.Root, global_config, **settings)
