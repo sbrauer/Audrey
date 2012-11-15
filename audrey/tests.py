@@ -376,9 +376,60 @@ class FunctionalTests(unittest.TestCase):
             coll.add_child(instance)
         self.assertEqual(cm.exception.args[0], '''Cannot add example_named_object to example_base_collection.''')
 
+    def test_deletes(self):
+        root = _makeOneRoot(self.request)
+        coll = root['example_base_collection']
+        instance1 = _makeOneBaseObject(self.request, title='Instance #1')
+        instance2 = _makeOneBaseObject(self.request, title='Instance #2')
+        instance3 = _makeOneBaseObject(self.request, title='Instance #3')
+        coll.add_child(instance1)
+        coll.add_child(instance2)
+        coll.add_child(instance3)
+        name1 = instance1.__name__
+        name2 = instance2.__name__
+        name3 = instance3.__name__
+        id1 = instance1._id
+        id2 = instance2._id
+        id3 = instance3._id
+        from audrey import sortutil
+        c_and_t = coll.get_child_names_and_total(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(c_and_t['total'], 3)
+        self.assertEqual(c_and_t['items'], [name1, name2, name3])
+        self.assertEqual(coll.delete_child_by_name(name1), 1)
+        c_and_t = coll.get_child_names_and_total(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(c_and_t['total'], 2)
+        self.assertEqual(c_and_t['items'], [name2, name3])
+        self.assertEqual(coll.delete_child_by_name(name1), 0)
+        self.assertEqual(coll.delete_child_by_id(id3), 1)
+        c_and_t = coll.get_child_names_and_total(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(c_and_t['total'], 1)
+        self.assertEqual(c_and_t['items'], [name2])
+        self.assertEqual(coll.delete_child_by_id(id3), 0)
+
+    def test_indexing(self):
+        root = _makeOneRoot(self.request)
+        coll = root['example_base_collection']
+        instance1 = _makeOneBaseObject(self.request, title='Instance #1')
+        instance2 = _makeOneBaseObject(self.request, title='Instance #2')
+        instance3 = _makeOneBaseObject(self.request, title='Instance #3')
+        self.assertEqual(root.search_raw()['hits']['total'], 0)
+        coll.add_child(instance1)
+        self.assertEqual(root.search_raw()['hits']['total'], 1)
+        coll.add_child(instance2)
+        self.assertEqual(root.search_raw()['hits']['total'], 2)
+        coll.add_child(instance3)
+        self.assertEqual(root.search_raw()['hits']['total'], 3)
+        coll._clear_elastic()
+        self.assertEqual(root.search_raw()['hits']['total'], 0)
+        self.assertEqual(coll._reindex_all(), 3)
+        self.assertEqual(root.search_raw()['hits']['total'], 3)
+        self.assertEqual(coll._reindex_all(clear=True), 3)
+        self.assertEqual(root.search_raw()['hits']['total'], 3)
+
     def test_naming_crud(self):
         root = _makeOneRoot(self.request)
         coll = root['example_naming_collection']
+        from audrey import sortutil
         name = 'name1'
         instance = _makeOneNamedObject(self.request, name)
         result = root.basic_fulltext_search()
@@ -388,7 +439,6 @@ class FunctionalTests(unittest.TestCase):
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]._id, instance._id)
-        # FIXME: do a search by name
 
         # Create another object and try to add with the same name
         name2= 'name2' 
@@ -398,9 +448,36 @@ class FunctionalTests(unittest.TestCase):
             coll.add_child(instance2)
         self.assertEqual(cm.exception.args[0], '''The name "%s" is already in use.''' % name)
 
+        self.assertEqual(coll.get_child_by_name(name2), None)
+
+        # Now try to add again with a unique name
+        instance2.__name__ = name2
+        coll.add_child(instance2)
+        c_and_t = coll.get_child_names_and_total(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(c_and_t['total'], 2)
+        self.assertEqual(c_and_t['items'], [name, name2])
+        self.assertNotEqual(coll.get_child_by_name(name2), None)
+
         coll.delete_child_by_name(name)
         self.assertFalse(coll.has_child_with_name(name))
         result = root.basic_fulltext_search()
-        self.assertEqual(result['total'], 0)
-    # FIXME... test renames, and test query/search results with more than one object of each type
+        self.assertEqual(result['total'], 1)
+
+    def test_renames(self):
+        root = _makeOneRoot(self.request)
+        coll = root['example_naming_collection']
+        name1 = 'name1'
+        name2 = 'name2'
+        self.assertEqual(coll.rename_child(name1, name2), 0)
+        from audrey import sortutil
+        self.assertFalse(coll.has_child_with_name(name1))
+        instance = _makeOneNamedObject(self.request, name1)
+        coll.add_child(instance)
+        self.assertTrue(coll.has_child_with_name(name1))
+        self.assertEqual(coll.rename_child(name1, name1), 0)
+        self.assertEqual(coll.rename_child(name1, name2), 1)
+        self.assertFalse(coll.has_child_with_name(name1))
+        self.assertTrue(coll.has_child_with_name(name2))
+
+    # FIXME... test query/search results with more than one object of each type
 
