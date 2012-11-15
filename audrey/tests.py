@@ -53,20 +53,20 @@ def _getExampleBaseCollectionClass():
     classes[TYPE_NAME] = ExampleBaseCollection
     return ExampleBaseCollection
 
-def _getExampleNamingObjectClass():
-    TYPE_NAME = 'example_naming_object'
+def _getExampleNamedObjectClass():
+    TYPE_NAME = 'example_named_object'
     if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
     import colander
-    class ExampleNamingObject(resources.object.NamedObject):
+    class ExampleNamedObject(resources.object.NamedObject):
         _object_type = TYPE_NAME
         @classmethod
         def get_class_schema(cls, request=None):
             schema = colander.SchemaNode(colander.Mapping())
             schema.add(colander.SchemaNode(colander.String(), name='title'))
             return schema
-    classes[TYPE_NAME] = ExampleNamingObject
-    return ExampleNamingObject
+    classes[TYPE_NAME] = ExampleNamedObject
+    return ExampleNamedObject
 
 def _getExampleNamingCollectionClass():
     TYPE_NAME = 'example_naming_collection'
@@ -74,7 +74,7 @@ def _getExampleNamingCollectionClass():
     from audrey import resources
     class ExampleNamingCollection(resources.collection.NamingCollection):
         _collection_name = TYPE_NAME
-        _object_classes = (_getExampleNamingObjectClass(),)
+        _object_classes = (_getExampleNamedObjectClass(),)
     classes[TYPE_NAME] = ExampleNamingCollection
     return ExampleNamingCollection
 
@@ -96,8 +96,8 @@ def _makeOneBaseObject(request, title='A Title', body='<p>Some body.</p>', datel
 def _makeOneBaseCollection(request):
     return _getExampleBaseCollectionClass()(request)
 
-def _makeOneNamingObject(request, name, title='A Title'):
-    return _getExampleNamingObjectClass()(request, __name__=name, title=title)
+def _makeOneNamedObject(request, name, title='A Title'):
+    return _getExampleNamedObjectClass()(request, __name__=name, title=title)
 
 def _makeOneNamingCollection(request):
     return _getExampleNamingCollectionClass()(request)
@@ -148,13 +148,36 @@ class UtilTests(unittest.TestCase):
         self.assertTrue(str(sortutil.SortSpec('foo,-bar,+baz')), 'foo,-bar,baz')
 
 class RootTests(unittest.TestCase):
+
     def test_constructor(self):
         request = testing.DummyRequest()
         instance = _makeOneRoot(request)
         self.assertEqual(instance.__name__, "")
         self.assertEqual(instance.__parent__, None)
 
+class CollectionTests(unittest.TestCase):
+
+    def test_dupe_types(self):
+        request = testing.DummyRequest()
+        from audrey import resources
+        class BadCollection(resources.collection.BaseCollection):
+            _collection_name = 'bad_collection'
+            _object_classes = (_getExampleBaseObjectClass(), _getExampleBaseObjectClass())
+        with self.assertRaises(ValueError) as cm:
+            coll = BadCollection(request)
+        self.assertEqual(cm.exception.args[0], '''Non-unique object type: %s''' % 'example_base_object')
+
+    def test_no_types(self):
+        request = testing.DummyRequest()
+        from audrey import resources
+        class BadCollection(resources.collection.BaseCollection):
+            _collection_name = 'bad_collection'
+            _object_classes = ()
+        coll = BadCollection(request)
+        self.assertEqual(coll._get_child_class_from_mongo_doc({}), None)
+
 class ObjectTests(unittest.TestCase):
+
     def test_get_schema(self):
         self.assertEqual(len(_getBaseObjectClass().get_class_schema().children), 0)
         self.assertEqual(len(_getExampleBaseObjectClass().get_class_schema().children), 4)
@@ -244,33 +267,34 @@ class FunctionalTests(unittest.TestCase):
 
     def test_add_child(self):
         root = _makeOneRoot(self.request)
-        collection = root['example_base_collection']
+        coll = root['example_base_collection']
         instance = _makeOneBaseObject(self.request)
         self.assertEqual(instance._id, None)
         self.assertEqual(instance._created, None)
         self.assertEqual(instance._modified, None)
-        collection.add_child(instance)
+        coll.add_child(instance)
         self.assertNotEqual(instance._id, None)
         self.assertNotEqual(instance._created, None)
         self.assertNotEqual(instance._modified, None)
         self.assertEqual(instance.__name__, str(instance._id))
-        self.assertEqual(instance.__parent__, collection)
+        self.assertEqual(instance.__parent__, coll)
 
     def test_basic_crud(self):
         root = _makeOneRoot(self.request)
-        collection = root['example_base_collection']
+        coll = root['example_base_collection']
         instance = _makeOneBaseObject(self.request)
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
-        collection.add_child(instance)
+        coll.add_child(instance)
         child_name = instance.__name__
-        self.assertTrue(collection.has_child_with_name(child_name))
+        self.assertTrue(coll.has_child_with_name(child_name))
+        self.assertTrue(coll.has_child_with_id(instance._id))
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]._id, instance._id)
 
         # Get another copy of the same object and compare attribute vals.
-        instance2 = collection.get_child_by_name(child_name)
+        instance2 = coll.get_child_by_name(child_name)
         self.assertEqual(instance._id, instance2._id)
         self.assertEqual(instance.title, instance2.title)
         self.assertEqual(instance.body, instance2.body)
@@ -280,34 +304,102 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(instance.dateline, instance2.dateline.date())
         
         # Delete the child and make sure mongo and elastic are updated.
-        collection.delete_child_by_name(child_name)
-        self.assertFalse(collection.has_child_with_name(child_name))
+        coll.delete_child_by_name(child_name)
+        self.assertFalse(coll.has_child_with_name(child_name))
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
 
     def test_unindex_notfound(self):
         instance = _makeOneBaseObject(self.request)
         root = _makeOneRoot(self.request)
-        collection = root['example_base_collection']
-        collection.add_child(instance)
+        coll = root['example_base_collection']
+        coll.add_child(instance)
         self.assertEqual(instance.unindex(), 1)
         self.assertEqual(instance.unindex(), 0)
 
+    def test_child_getters(self):
+        root = _makeOneRoot(self.request)
+        coll = root['example_base_collection']
+        c_and_t = coll.get_children_and_total()
+        self.assertEqual(c_and_t['total'], 0)
+        self.assertEqual(c_and_t['items'], [])
+        from bson.objectid import ObjectId
+        self.assertEqual(coll.get_child_by_id(ObjectId()), None)
+        instance = _makeOneBaseObject(self.request)
+        instance2 = _makeOneBaseObject(self.request, title='Another')
+        instance3 = _makeOneBaseObject(self.request, title='One More')
+        self.assertNotEqual(instance.title, instance2.title)
+        coll.add_child(instance)
+        c_and_t = coll.get_children_and_total()
+        self.assertEqual(c_and_t['total'], 1)
+        self.assertEqual([x._id for x in c_and_t['items']], [instance._id])
+        self.assertNotEqual(coll.get_child_by_id(instance._id), None)
+        coll.add_child(instance2)
+        self.assertNotEqual(instance._id, instance2._id)
+        from audrey import sortutil
+        c_and_t = coll.get_children_and_total(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(c_and_t['total'], 2)
+        self.assertEqual([x._id for x in c_and_t['items']], [instance._id, instance2._id])
+        self.assertNotEqual(coll.get_child_by_id(instance2._id), None)
+        self.assertEqual(coll[instance.__name__].title, instance.title)
+        self.assertEqual(coll[instance2.__name__].title, instance2.title)
+        with self.assertRaises(KeyError):
+            coll['foo']
+        self.assertFalse(coll.has_child_with_name('bar'))
+        self.assertTrue(coll.has_child_with_name(instance.__name__))
+        result = coll.get_children(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual([x._id for x in result], [instance._id, instance2._id])
+        n_and_t = coll.get_child_names_and_total(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(n_and_t['total'], 2)
+        self.assertEqual(n_and_t['items'], [instance.__name__, instance2.__name__])
+        coll.add_child(instance3)
+        names = coll.get_child_names(sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(names, [instance.__name__, instance2.__name__, instance3.__name__])
+        names = coll.get_child_names(skip=1, sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(names, [instance2.__name__, instance3.__name__])
+        names = coll.get_child_names(limit=2, sort=sortutil.sort_string_to_mongo('_created'))
+        self.assertEqual(names, [instance.__name__, instance2.__name__])
+        names = []
+        for child in coll.get_children_lazily(sort=sortutil.sort_string_to_mongo('-_created')):
+            names.append(child.__name__)
+        self.assertEqual(names, [instance3.__name__, instance2.__name__, instance.__name__])
+
+    def test_veto_add(self):
+        root = _makeOneRoot(self.request)
+        coll = root['example_base_collection']
+        from audrey.exceptions import Veto
+        with self.assertRaises(Veto) as cm:
+            coll.add_child(root)
+        self.assertEqual(cm.exception.args[0], '''Cannot add <class 'audrey.tests.ExampleRoot'> to <class 'audrey.tests.ExampleBaseCollection'>.''')
+        instance = _makeOneNamedObject(self.request, 'foo')
+        with self.assertRaises(Veto) as cm:
+            coll.add_child(instance)
+        self.assertEqual(cm.exception.args[0], '''Cannot add example_named_object to example_base_collection.''')
+
     def test_naming_crud(self):
         root = _makeOneRoot(self.request)
-        collection = root['example_naming_collection']
+        coll = root['example_naming_collection']
         name = 'name1'
-        instance = _makeOneNamingObject(self.request, name)
+        instance = _makeOneNamedObject(self.request, name)
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
-        collection.add_child(instance)
-        self.assertTrue(collection.has_child_with_name(name))
+        coll.add_child(instance)
+        self.assertTrue(coll.has_child_with_name(name))
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]._id, instance._id)
         # FIXME: do a search by name
-        collection.delete_child_by_name(name)
-        self.assertFalse(collection.has_child_with_name(name))
+
+        # Create another object and try to add with the same name
+        name2= 'name2' 
+        instance2 = _makeOneNamedObject(self.request, name, title='Another Object')
+        from audrey.exceptions import Veto
+        with self.assertRaises(Veto) as cm:
+            coll.add_child(instance2)
+        self.assertEqual(cm.exception.args[0], '''The name "%s" is already in use.''' % name)
+
+        coll.delete_child_by_name(name)
+        self.assertFalse(coll.has_child_with_name(name))
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
     # FIXME... test renames, and test query/search results with more than one object of each type

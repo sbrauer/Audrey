@@ -78,10 +78,10 @@ class BaseCollection(object):
         return self._collection_name
 
     def construct_child_from_mongo_doc(self, doc):
-        #obj = self._get_child_class_from_mongo_doc(doc)(self.request, **doc)
         obj = self._get_child_class_from_mongo_doc(doc)(self.request)
         obj.load_mongo_doc(doc)
-        obj.__name__ = self._get_child_name_from_mongo_doc(doc)
+        if self._NAME_FIELD == self._ID_FIELD:
+            obj.__name__ = str(obj._id)
         obj.__parent__ = self
         return obj
 
@@ -97,34 +97,38 @@ class BaseCollection(object):
         if classes: return classes[0]
         return None
 
-    def _get_child_name_from_mongo_doc(self, doc):
-        return str(doc[self._NAME_FIELD])
-
-    def _get_mongo_query_spec_for_id(self, id):
-        return {self._ID_FIELD: ObjectId(id)}
-
-    def _get_mongo_query_spec_for_name(self, name):
-        return self._get_mongo_query_spec_for_id(name)
-
     def has_child_with_id(self, id):
-        doc = self.get_mongo_collection().find_one(self._get_mongo_query_spec_for_id(id), fields=[])
+        # id should be an ObjectId (not a string)
+        doc = self.get_mongo_collection().find_one(dict(_id=id), fields=[])
         return doc is not None
 
     def get_child_by_id(self, id):
-        doc = self.get_mongo_collection().find_one(self._get_mongo_query_spec_for_id(id))
+        # id should be an ObjectId (not a string)
+        doc = self.get_mongo_collection().find_one(dict(_id=id))
         if doc is None:
             return None
         return self.construct_child_from_mongo_doc(doc)
+
+    def _str_to_id(self, s):
+        try:
+            id = ObjectId(s)
+        except:
+            id = None
+        return id
 
     def has_child_with_name(self, name):
-        doc = self.get_mongo_collection().find_one(self._get_mongo_query_spec_for_name(name), fields=[])
-        return doc is not None
+        id = self._str_to_id(name)
+        if id:
+            return self.has_child_with_id(id)
+        else:
+            return False
 
     def get_child_by_name(self, name):
-        doc = self.get_mongo_collection().find_one(self._get_mongo_query_spec_for_name(name))
-        if doc is None:
+        id = self._str_to_id(name)
+        if id:
+            return self.get_child_by_id(id)
+        else:
             return None
-        return self.construct_child_from_mongo_doc(doc)
 
     def __getitem__(self, name):
         child = self.get_child_by_name(name)
@@ -245,17 +249,24 @@ class NamingCollection(BaseCollection):
     @classmethod
     def get_mongo_indexes(cls):
         indexes = BaseCollection.get_mongo_indexes()
-        indexes.append(([('__name__', 1)], dict(unique=True)))
+        indexes.append(([(cls._NAME_FIELD, 1)], dict(unique=True)))
         return indexes
 
     @classmethod
     def get_elastic_mapping(cls):
         mapping = BaseCollection.get_elastic_mapping()
-        mapping['__name__'] = dict(type='string', include_in_all=False, index='not_analyzed')
+        mapping[cls._NAME_FIELD] = dict(type='string', include_in_all=False, index='not_analyzed')
         return mapping
 
-    def _get_mongo_query_spec_for_name(self, name):
-        return {self._NAME_FIELD: name}
+    def has_child_with_name(self, name):
+        doc = self.get_mongo_collection().find_one({self._NAME_FIELD: name}, fields=[])
+        return doc is not None
+
+    def get_child_by_name(self, name):
+        doc = self.get_mongo_collection().find_one({self._NAME_FIELD: name})
+        if doc is None:
+            return None
+        return self.construct_child_from_mongo_doc(doc)
 
     # If you want to restrict the format of names (legal characters, etc)
     # override this method to return an error msg if the name doesn't 
