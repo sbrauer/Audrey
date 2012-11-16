@@ -6,8 +6,17 @@
 
 [ ] Implement RESTful views (for CRUD, "forms" and search)
 
+    Pyramid json references:
+    http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/api/renderers.html?highlight=json#pyramid.renderers.JSON
+    http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/renderers.html#json-serializing-custom-objects
+    http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/webob.html#dealing-with-a-json-encoded-request-body
+
+    See also:
+    http://zhuoqiang.me/a/restful-pyramid
+
 [ ] Setup a pcreate scaffold, and create a demo app that uses it.
-    The demo app should include a frontend that uses Knockout.
+    See http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/scaffolding.html
+    The demo app could include a frontend that uses Knockout.
     What should the demo app be?  A blog maybe?
 
 [ ] Add support for files and GridFS (and Elastic attachment support?)
