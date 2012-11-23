@@ -47,7 +47,6 @@ def object_put(context, request):
     # 403 Forbidden: Precondition headers (If-Unmodified-Since and If-Match) missing.
     # 412 Precondition Failed
     # 400 Bad Request: Validation failed.
-    request.response.content_type = 'application/json'
     err = test_preconditions(context, request)
     if err: return err
     schema = context.get_schema()
@@ -75,7 +74,6 @@ def collection_post(context, request):
     # key containing a dictionary mapping field names to error messages.
     # Possible failure statuses:
     # 400 Bad Request: _object_type missing or invalid, or validation failed.
-    request.response.content_type = 'application/json'
     json_body = request.json_body
     _object_type = json_body.get('_object_type', None)
     if _object_type is None:
@@ -108,7 +106,6 @@ def object_delete(context, request):
     # Possible failure statuses:
     # 403 Forbidden: Precondition headers (If-Unmodified-Since and If-Match) missing.
     # 412 Precondition Failed
-    request.response.content_type = 'application/json'
     err = test_preconditions(context, request)
     if err: return err
     context.__parent__.delete_child(context)
