@@ -14,8 +14,23 @@
     http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/renderers.html#json-serializing-custom-objects
     http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/webob.html#dealing-with-a-json-encoded-request-body
 
-    See also:
-    http://zhuoqiang.me/a/restful-pyramid
+    To handle PUT requests on a resource that doesn't yet exist,
+    try hooking into the NotFound view (http://docs.pylonsproject.org/projects/pyramid/en/1.0-branch/narr/hooks.html)
+    Something like this:
+    def notfound_view(request):
+        if request.method == 'PUT':
+            if isinstance(request.context, audrey.resources.NamingCollection):
+                # Get next path component from URL and try to use as an ID
+                # to create a new object.
+                # FIXME: what if id isn't valid?
+                # FIXME: If collection is heterogenous, how do we determine
+                # the object type to try to create?
+                # Perhaps a custom request header or a "_object_type" key
+                # in the JSON request body.
+                return result similar to collection_post()
+        # Just do a normal 404
+        return HTTPNotFound()
+
 
 [ ] Setup a pcreate scaffold, and create a demo app that uses it.
     See http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/scaffolding.html

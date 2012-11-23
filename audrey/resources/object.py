@@ -4,6 +4,7 @@ from audrey.htmlutil import html_to_text
 from copy import deepcopy
 import datetime
 import pyes
+import hashlib
 
 class BaseObject(object):
     """ Base class for objects that can be stored in MongoDB.
@@ -61,12 +62,14 @@ class BaseObject(object):
         if _id: values['_id'] =  _id
         values['_created'] = getattr(self, '_created', None)
         values['_modified'] = getattr(self, '_modified', None)
+        values['_etag'] = getattr(self, '_etag', None)
         return values
 
     def set_nonschema_values(self, **kwargs):
         self._id = kwargs.get('_id') # mongodb id
         self._created = kwargs.get('_created')
         self._modified = kwargs.get('_modified')
+        self._etag = kwargs.get('_etag')
 
     def set_schema_values(self, **kwargs):
         for name in self.get_schema_names():
@@ -109,13 +112,23 @@ class BaseObject(object):
     def get_mongo_save_doc(self):
         return _mongify_values(self.get_all_values())
 
-    def save(self, set_modified=True, index=True):
+    def __str__(self):
+        return str(self.get_all_values())
+
+    def save(self, set_modified=True, index=True, set_etag=True):
         if set_modified:
             self._modified = dateutil.utcnow()
             if not getattr(self, '_created', None): self._created = self._modified
+        if set_etag:
+            self._etag = self.generate_etag()
         doc = self.get_mongo_save_doc()
         self._id = self.get_mongo_collection().save(doc, safe=True)
         if index: self.index()
+
+    def generate_etag(self):
+        h = hashlib.new('md5')
+        h.update(str(self.get_schema_values()))
+        return h.hexdigest()
 
     def load_mongo_doc(self, doc):
         clean = _demongify_values(doc)

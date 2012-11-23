@@ -2,13 +2,12 @@
 
   <include package="pyramid_zcml" />
 
-  <!-- FIXME: does Audrey even need static resources? -->
   <static
      name="static"
      path="static"
      cache_max_age="3600"
      />
 
-  <!-- FIXME: add RESTful views -->
+  <include file="views.zcml" />
 
 </configure>

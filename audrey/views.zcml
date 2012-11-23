@@ -1,0 +1,51 @@
+<configure xmlns="http://pylonshq.com/pyramid">
+
+  <view
+     context=".resources.root.Root"
+     view=".views.root_get"
+     renderer="json"
+     accept="application/hal+json"
+     request_method="GET"
+     />
+
+  <view
+     context=".resources.collection.BaseCollection"
+     view=".views.collection_get"
+     renderer="json"
+     accept="application/hal+json"
+     request_method="GET"
+     />
+
+  <view
+     context=".resources.collection.BaseCollection"
+     view=".views.collection_post"
+     renderer="json"
+     accept="application/json"
+     request_method="POST"
+     />
+
+  <view
+     context=".resources.object.BaseObject"
+     view=".views.object_get"
+     renderer="json"
+     accept="application/hal+json"
+     request_method="GET"
+     />
+
+  <view
+     context=".resources.object.BaseObject"
+     view=".views.object_put"
+     renderer="json"
+     accept="application/json"
+     request_method="PUT"
+     />
+
+  <view
+     context=".resources.object.BaseObject"
+     view=".views.object_delete"
+     renderer="json"
+     accept="application/json"
+     request_method="DELETE"
+     />
+
+</configure>
