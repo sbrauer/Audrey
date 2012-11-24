@@ -158,12 +158,10 @@ def collection_post(context, request, __name__=None):
 def notfound_put(request):
     if isinstance(request.context, resources.collection.NamingCollection):
         name = request.view_name
-        # We want a name, but only if there's no subpath.
-        # We only care about creating direct children.
+        # A non-empty subpath would indicate more than one path element.
         if name and not request.subpath:
             return collection_post(request.context, request, name)
     return HTTPNotFound()
 
 def notfound_default(request):
     return HTTPNotFound()
-
