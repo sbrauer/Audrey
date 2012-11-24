@@ -1,5 +1,10 @@
 import colander
-import webob # for datetime_utils
+import webob
+from pyramid.httpexceptions import HTTPNotFound
+import resources
+from exceptions import Veto
+
+# FIXME: implement OPTIONS, DELETE, POST and PUT (as appropriate)
 
 def object_get(context, request):
     ret = context.get_schema_values()
@@ -62,42 +67,6 @@ def object_put(context, request):
     request.response.content_location = request.resource_url(context)
     return {}
 
-def collection_post(context, request):
-    # Create a new object/resource.
-    # Request body should be a JSON document with
-    # the new object's schema values and _object_type.
-    # On success, return 201 Created with an empty body and Content-Location
-    # header with url of new resource.
-    # On failure, response is simple application/json document
-    # with an "error" key containing an error message string.
-    # In the event of schema validation errors, there will also be an "errors"
-    # key containing a dictionary mapping field names to error messages.
-    # Possible failure statuses:
-    # 400 Bad Request: _object_type missing or invalid, or validation failed.
-    json_body = request.json_body
-    _object_type = json_body.get('_object_type', None)
-    if _object_type is None:
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Request is missing _object_type.')
-    object_class = context._object_classes_by_type.get(_object_type, None)
-    if object_class is None:
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Unsupported _object_type.')
-
-    schema = object_class.get_class_schema(request=request)
-    try:
-        deserialized = schema.deserialize(json_body)
-    except colander.Invalid, e:
-        errors = e.asdict()
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Validation failed.', errors=errors)
-    obj = object_class(request, **deserialized)
-    context.add_child(obj)
-    request.response.status_int = 201 # Created
-    request.response.content_location = request.resource_url(obj)
-    request.response.location = request.resource_url(obj)
-    return {}
-
 def object_delete(context, request):
     # Delete an existing object.
     # On success, response is an empty body (204).
@@ -137,4 +106,64 @@ def collection_get(context, request):
     request.response.content_type = 'application/hal+json'
     return ret
 
-# FIXME: implement OPTIONS, DELETE, POST and PUT (as appropriate)
+def collection_post(context, request, __name__=None):
+    # Create a new object/resource.
+    # Request body should be a JSON document with
+    # the new object's schema values (and optional _object_type;
+    # required for heterogenous collections).
+    # On success, return 201 Created with an empty body and Content-Location
+    # header with url of new resource.
+    # On failure, response is simple application/json document
+    # with an "error" key containing an error message string.
+    # In the event of schema validation errors, there will also be an "errors"
+    # key containing a dictionary mapping field names to error messages.
+    # Possible failure statuses:
+    # 400 Bad Request: _object_type missing or invalid, or validation failed.
+    object_class = None
+    json_body = request.json_body
+    _object_type = json_body.get('_object_type', None)
+    if _object_type:
+        object_class = context._object_classes_by_type.get(_object_type, None)
+    else:
+        classes = context.get_object_classes()
+        if len(classes) == 1:
+            object_class = classes[0]
+        else:
+            request.response.status_int = 400 # Bad Request
+            return dict(error='Request is missing _object_type.')
+    if object_class is None:
+        request.response.status_int = 400 # Bad Request
+        return dict(error='Unsupported _object_type.')
+
+    schema = object_class.get_class_schema(request=request)
+    try:
+        deserialized = schema.deserialize(json_body)
+    except colander.Invalid, e:
+        errors = e.asdict()
+        request.response.status_int = 400 # Bad Request
+        return dict(error='Validation failed.', errors=errors)
+    obj = object_class(request, **deserialized)
+    if __name__: obj.__name__ = __name__
+    try:
+        context.add_child(obj)
+    except Veto, e:
+        request.response.status_int = 400 # Bad Request
+        return dict(error=str(e))
+
+    request.response.status_int = 201 # Created
+    request.response.content_location = request.resource_url(obj)
+    request.response.location = request.resource_url(obj)
+    return {}
+
+def notfound_put(request):
+    if isinstance(request.context, resources.collection.NamingCollection):
+        name = request.view_name
+        # We want a name, but only if there's no subpath.
+        # We only care about creating direct children.
+        if name and not request.subpath:
+            return collection_post(request.context, request, name)
+    return HTTPNotFound()
+
+def notfound_default(request):
+    return HTTPNotFound()
+

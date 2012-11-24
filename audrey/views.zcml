@@ -41,6 +41,19 @@
      />
 
   <view
+     context="pyramid.exceptions.NotFound"
+     view=".views.notfound_put"
+     renderer="json"
+     accept="application/json"
+     request_method="PUT"
+     />
+
+  <view
+     context="pyramid.exceptions.NotFound"
+     view=".views.notfound_default"
+     />
+
+  <view
      context=".resources.object.BaseObject"
      view=".views.object_delete"
      renderer="json"
