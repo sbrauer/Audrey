@@ -3,6 +3,10 @@ import webob
 from pyramid.httpexceptions import HTTPNotFound
 import resources
 from exceptions import Veto
+import sortutil
+
+DEFAULT_BATCH_SIZE = 20
+MAX_BATCH_SIZE = 100
 
 # FIXME: implement OPTIONS, DELETE, POST and PUT (as appropriate)
 
@@ -94,15 +98,38 @@ def root_get(context, request):
     return ret
 
 def collection_get(context, request):
-    # FIXME: add support for paging, sorting and filtering via optional parms to to_hal()
+    # FIXME: add optional parm to render children inside _embedded instead of _links
+    # (in which case, use get_children_and_total() instead of get_child_names_and_total())
+    (batch, per_batch, skip) = get_batch_parms(request)
+    sort = sortutil.sort_string_to_mongo(request.GET.get('sort', None))
+    # FIXME: should sort string appear in the JSON doc (similar to "_batch_info")?
+    # FIXME: what about a spec parm for filtering?
     ret = {}
-    # FIXME: add option to put children inside _embedded instead of _links
+    result = context.get_child_names_and_total(sort=sort, skip=skip, limit=per_batch)
+    total_items = result['total']
+    total_batches = total_items / per_batch
+    if total_items % per_batch: total_batches += 1
+
+    ret['_batch_info'] = dict(
+        total_items = total_items,
+        total_batches = total_batches,
+        batch = batch,
+        per_batch = per_batch,
+    )
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         collection = dict(href=request.resource_url(context.__parent__)),
-        # FIXME: add paging, sorting and filtering
-        item = [dict(name=c.__name__, href=request.resource_url(c)) for c in context.get_children()],
+        item = [dict(name=name, href=request.resource_url(context, name)) for name in result['items']],
     )
+    query_dict = {}
+    query_dict.update(request.GET)
+    if batch > 1:
+        query_dict['batch'] = batch-1
+        ret['_links']['prev'] = dict(href=request.resource_url(context, query=query_dict))
+    if batch < total_batches:
+        query_dict['batch'] = batch+1
+        ret['_links']['next'] = dict(href=request.resource_url(context, query=query_dict))
+
     request.response.content_type = 'application/hal+json'
     return ret
 
@@ -165,3 +192,17 @@ def notfound_put(request):
 
 def notfound_default(request):
     return HTTPNotFound()
+
+def get_int_query_parm(request, name, default=None):
+    try:
+        return int(request.GET[name])
+    except:
+        return default
+
+def get_batch_parms(request):
+    batch = get_int_query_parm(request, 'batch', 1)
+    per_batch = get_int_query_parm(request, 'per_batch', DEFAULT_BATCH_SIZE)
+    if per_batch > MAX_BATCH_SIZE: per_batch = MAX_BATCH_SIZE
+    skip = (batch-1) * per_batch
+    limit = per_batch
+    return (batch, per_batch, skip)
