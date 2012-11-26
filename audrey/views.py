@@ -10,7 +10,7 @@ MAX_BATCH_SIZE = 100
 
 # FIXME: implement OPTIONS for root, collection, and object
 
-def object_get(context, request):
+def represent_object(context, request):
     ret = context.get_schema_values()
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
@@ -20,11 +20,40 @@ def object_get(context, request):
     ret['_created'] = context._created
     ret['_modified'] = context._modified
     ret['_object_type'] = context._object_type
+    return ret
+
+# FIXME: replace with an interface?
+class ItemHandler(object):
+    def get_property(self):
+        pass # Should return "_links" or "_embedded"
+    def handle_item(self, context, request):
+        pass # Should return a dictionary representing one item.
+
+class LinkingItemHandler(object):
+    def get_property(self):
+        return "_links"
+    def handle_item(self, context, request):
+        return dict(name=context.__name__, href=request.resource_url(context))
+
+class EmbeddingItemHandler(object):
+    def get_property(self):
+        return "_embedded"
+    def handle_item(self, context, request):
+        return represent_object(context, request)
+
+class LinkingSearchItemHandler(LinkingItemHandler):
+    def handle_item(self, context, request):
+        return dict(name="%s:%s" % (context.__parent__.__name__, context.__name__), href=request.resource_url(context))
+
+DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
+DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
+
+def object_get(context, request):
     request.response.content_type = 'application/hal+json'
     request.response.etag = context._etag
     request.response.last_modified = context._modified
     request.response.conditional_response = True
-    return ret
+    return represent_object(context, request)
 
 def test_preconditions(context, request):
     # Returns None on success, or a dictionary with an "error" key on failure.
@@ -97,7 +126,7 @@ def root_get(context, request):
     request.response.content_type = 'application/hal+json'
     return ret
 
-def root_search(context, request):
+def root_search(context, request, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
     (batch, per_batch, skip) = get_batch_parms(request)
     sort = request.GET.get('sort', None)
     search_string = request.GET.get('search_string', None)
@@ -109,17 +138,19 @@ def root_search(context, request):
     if total_items % per_batch: total_batches += 1
 
     ret = {}
-    ret['_batch_info'] = dict(
+    ret['_summary'] = dict(
         total_items = total_items,
         total_batches = total_batches,
         batch = batch,
         per_batch = per_batch,
+        sort = sort,
+        search_string = search_string,
+        collections = collection_names,
     )
     query_dict = {}
     query_dict.update(request.GET)
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context, '@@search', query=query_dict)),
-        item = [dict(name="%s:%s" % (obj.__parent__.__name__, obj.__name__), href=request.resource_url(obj)) for obj in result['items']],
     )
     if batch > 1:
         query_dict['batch'] = batch-1
@@ -127,35 +158,35 @@ def root_search(context, request):
     if batch < total_batches:
         query_dict['batch'] = batch+1
         ret['_links']['next'] = dict(href=request.resource_url(context, '@@search', query=query_dict))
+
+    if item_handler.get_property() == '_embedded':
+        ret['_embedded'] = {}
+    ret[item_handler.get_property()]['item'] = [item_handler.handle_item(obj, request) for obj in result['items']]
     request.response.content_type = 'application/hal+json'
     return ret
 
-def collection_get(context, request):
-    # FIXME: add optional parm to render children inside _embedded instead of _links
-    # (in which case, use get_children_and_total() instead of get_child_names_and_total())
+def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_ITEM_HANDLER):
     (batch, per_batch, skip) = get_batch_parms(request)
-    sort = sortutil.sort_string_to_mongo(request.GET.get('sort', None))
-    # FIXME: should sort string appear in the JSON doc (similar to, or part of, "_batch_info")?
-    # FIXME: what about a spec parm for filtering?
-    # FIXME: what if someone wants to include a "title" for each child link?
-    result = context.get_child_names_and_total(sort=sort, skip=skip, limit=per_batch)
+    sort_string = request.GET.get('sort', None)
+    mongo_sort = sortutil.sort_string_to_mongo(sort_string)
+    result = context.get_children_and_total(spec=spec, sort=mongo_sort, skip=skip, limit=per_batch)
     total_items = result['total']
     total_batches = total_items / per_batch
     if total_items % per_batch: total_batches += 1
 
     ret = {}
-    ret['_batch_info'] = dict(
+    ret['_summary'] = dict(
         total_items = total_items,
         total_batches = total_batches,
         batch = batch,
         per_batch = per_batch,
+        sort = sort_string,
     )
     query_dict = {}
     query_dict.update(request.GET)
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context, query=query_dict)),
         collection = dict(href=request.resource_url(context.__parent__)),
-        item = [dict(name=name, href=request.resource_url(context, name)) for name in result['items']],
     )
     if batch > 1:
         query_dict['batch'] = batch-1
@@ -163,6 +194,10 @@ def collection_get(context, request):
     if batch < total_batches:
         query_dict['batch'] = batch+1
         ret['_links']['next'] = dict(href=request.resource_url(context, query=query_dict))
+
+    if item_handler.get_property() == '_embedded':
+        ret['_embedded'] = {}
+    ret[item_handler.get_property()]['item'] = [item_handler.handle_item(obj, request) for obj in result['items']]
 
     request.response.content_type = 'application/hal+json'
     return ret
