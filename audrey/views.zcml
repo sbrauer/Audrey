@@ -2,6 +2,15 @@
 
   <view
      context=".resources.root.Root"
+     name="search"
+     view=".views.root_search"
+     renderer="json"
+     accept="application/hal+json"
+     request_method="GET"
+     />
+
+  <view
+     context=".resources.root.Root"
      view=".views.root_get"
      renderer="json"
      accept="application/hal+json"

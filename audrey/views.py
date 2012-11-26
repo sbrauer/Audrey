@@ -8,7 +8,7 @@ import sortutil
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
 
-# FIXME: implement OPTIONS, DELETE, POST and PUT (as appropriate)
+# FIXME: implement OPTIONS for root, collection, and object
 
 def object_get(context, request):
     ret = context.get_schema_values()
@@ -92,8 +92,43 @@ def root_get(context, request):
         # FIXME: figure out optional parms for sorting/filtering collections
         #item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort,filter}", templated=True) for c in context.get_children()],
         item = [dict(name=c.__name__, href=request.resource_url(c)) for c in context.get_children()],
-        # FIXME: add a search link (and implement a search resource)
+        search = dict(href=request.resource_url(context, '@@search')+"?search_string={search_string}{&sort}{&collection*}", templated=True),
     )
+    request.response.content_type = 'application/hal+json'
+    return ret
+
+def root_search(context, request):
+    (batch, per_batch, skip) = get_batch_parms(request)
+    sort = request.GET.get('sort', None)
+    search_string = request.GET.get('search_string', None)
+    collection_names = request.GET.getall('collection')
+    # FIXME: what about highlight fields?
+    result = context.basic_fulltext_search(search_string=search_string, collection_names=collection_names, skip=skip, limit=per_batch, sort=sort)
+    total_items = result['total']
+    total_batches = total_items / per_batch
+    if total_items % per_batch: total_batches += 1
+
+    ret = {}
+    ret['_batch_info'] = dict(
+        total_items = total_items,
+        total_batches = total_batches,
+        batch = batch,
+        per_batch = per_batch,
+    )
+    query_dict = {}
+    query_dict.update(request.GET)
+    ret['_links'] = dict(
+        self = dict(href=request.resource_url(context, '@@search', query=query_dict)),
+        item = [dict(name="%s:%s" % (obj.__parent__.__name__, obj.__name__), href=request.resource_url(obj)) for obj in result['items']],
+    )
+    query_dict = {}
+    query_dict.update(request.GET)
+    if batch > 1:
+        query_dict['batch'] = batch-1
+        ret['_links']['prev'] = dict(href=request.resource_url(context, '@@search', query=query_dict))
+    if batch < total_batches:
+        query_dict['batch'] = batch+1
+        ret['_links']['next'] = dict(href=request.resource_url(context, '@@search', query=query_dict))
     request.response.content_type = 'application/hal+json'
     return ret
 
@@ -102,27 +137,28 @@ def collection_get(context, request):
     # (in which case, use get_children_and_total() instead of get_child_names_and_total())
     (batch, per_batch, skip) = get_batch_parms(request)
     sort = sortutil.sort_string_to_mongo(request.GET.get('sort', None))
-    # FIXME: should sort string appear in the JSON doc (similar to "_batch_info")?
+    # FIXME: should sort string appear in the JSON doc (similar to, or part of, "_batch_info")?
     # FIXME: what about a spec parm for filtering?
-    ret = {}
+    # FIXME: what if someone wants to include a "title" for each child link?
     result = context.get_child_names_and_total(sort=sort, skip=skip, limit=per_batch)
     total_items = result['total']
     total_batches = total_items / per_batch
     if total_items % per_batch: total_batches += 1
 
+    ret = {}
     ret['_batch_info'] = dict(
         total_items = total_items,
         total_batches = total_batches,
         batch = batch,
         per_batch = per_batch,
     )
+    query_dict = {}
+    query_dict.update(request.GET)
     ret['_links'] = dict(
-        self = dict(href=request.resource_url(context)),
+        self = dict(href=request.resource_url(context, query=query_dict)),
         collection = dict(href=request.resource_url(context.__parent__)),
         item = [dict(name=name, href=request.resource_url(context, name)) for name in result['items']],
     )
-    query_dict = {}
-    query_dict.update(request.GET)
     if batch > 1:
         query_dict['batch'] = batch-1
         ret['_links']['prev'] = dict(href=request.resource_url(context, query=query_dict))
