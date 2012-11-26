@@ -121,8 +121,6 @@ def root_search(context, request):
         self = dict(href=request.resource_url(context, '@@search', query=query_dict)),
         item = [dict(name="%s:%s" % (obj.__parent__.__name__, obj.__name__), href=request.resource_url(obj)) for obj in result['items']],
     )
-    query_dict = {}
-    query_dict.update(request.GET)
     if batch > 1:
         query_dict['batch'] = batch-1
         ret['_links']['prev'] = dict(href=request.resource_url(context, '@@search', query=query_dict))
