@@ -18,11 +18,25 @@
      />
 
   <view
+     context=".resources.root.Root"
+     view=".views.root_options"
+     renderer="json"
+     request_method="OPTIONS"
+     />
+
+  <view
      context=".resources.collection.BaseCollection"
      view=".views.collection_get"
      renderer="json"
      accept="application/hal+json"
      request_method="GET"
+     />
+
+  <view
+     context=".resources.collection.BaseCollection"
+     view=".views.collection_options"
+     renderer="json"
+     request_method="OPTIONS"
      />
 
   <view
@@ -39,6 +53,13 @@
      renderer="json"
      accept="application/hal+json"
      request_method="GET"
+     />
+
+  <view
+     context=".resources.object.BaseObject"
+     view=".views.object_options"
+     renderer="json"
+     request_method="OPTIONS"
      />
 
   <view

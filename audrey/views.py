@@ -8,7 +8,28 @@ import sortutil
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
 
-# FIXME: implement OPTIONS for root, collection, and object
+# FIXME: consider returning some sort of documentation
+# in the OPTIONS response body...
+# Perhaps a JSON document with details of the supported POST and/or PUT
+# requests?
+
+def object_options(context, request):
+    request.response.allow = "HEAD,GET,OPTIONS,PUT,DELETE"
+    request.response.status_int = 204 # No Content
+    return {}
+
+def root_options(context, request):
+    request.response.allow = "HEAD,GET,OPTIONS"
+    request.response.status_int = 204 # No Content
+    return {}
+
+def collection_options(context, request):
+    if isinstance(request.context, resources.collection.NamingCollection):
+        request.response.allow = "HEAD,GET,OPTIONS"
+    else:
+        request.response.allow = "HEAD,GET,OPTIONS,POST"
+    request.response.status_int = 204 # No Content
+    return {}
 
 def represent_object(context, request):
     ret = context.get_schema_values()
@@ -21,32 +42,6 @@ def represent_object(context, request):
     ret['_modified'] = context._modified
     ret['_object_type'] = context._object_type
     return ret
-
-# FIXME: replace with an interface?
-class ItemHandler(object):
-    def get_property(self):
-        pass # Should return "_links" or "_embedded"
-    def handle_item(self, context, request):
-        pass # Should return a dictionary representing one item.
-
-class LinkingItemHandler(object):
-    def get_property(self):
-        return "_links"
-    def handle_item(self, context, request):
-        return dict(name=context.__name__, href=request.resource_url(context))
-
-class EmbeddingItemHandler(object):
-    def get_property(self):
-        return "_embedded"
-    def handle_item(self, context, request):
-        return represent_object(context, request)
-
-class LinkingSearchItemHandler(LinkingItemHandler):
-    def handle_item(self, context, request):
-        return dict(name="%s:%s" % (context.__parent__.__name__, context.__name__), href=request.resource_url(context))
-
-DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
-DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 
 def object_get(context, request):
     request.response.content_type = 'application/hal+json'
@@ -118,13 +113,37 @@ def root_get(context, request):
     ret = {}
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
-        # FIXME: figure out optional parms for sorting/filtering collections
-        #item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort,filter}", templated=True) for c in context.get_children()],
-        item = [dict(name=c.__name__, href=request.resource_url(c)) for c in context.get_children()],
+        item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_children()],
         search = dict(href=request.resource_url(context, '@@search')+"?search_string={search_string}{&sort}{&collection*}", templated=True),
     )
     request.response.content_type = 'application/hal+json'
     return ret
+
+# FIXME: replace with an interface?
+class ItemHandler(object):
+    def get_property(self):
+        pass # Should return "_links" or "_embedded"
+    def handle_item(self, context, request):
+        pass # Should return a dictionary representing one item.
+
+class LinkingItemHandler(ItemHandler):
+    def get_property(self):
+        return "_links"
+    def handle_item(self, context, request):
+        return dict(name=context.__name__, href=request.resource_url(context))
+
+class EmbeddingItemHandler(ItemHandler):
+    def get_property(self):
+        return "_embedded"
+    def handle_item(self, context, request):
+        return represent_object(context, request)
+
+class LinkingSearchItemHandler(LinkingItemHandler):
+    def handle_item(self, context, request):
+        return dict(name="%s:%s" % (context.__parent__.__name__, context.__name__), href=request.resource_url(context))
+
+DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
+DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 
 def root_search(context, request, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
     (batch, per_batch, skip) = get_batch_parms(request)
