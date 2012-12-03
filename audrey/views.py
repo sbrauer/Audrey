@@ -41,6 +41,10 @@ def represent_object(context, request):
     ret['_created'] = context._created
     ret['_modified'] = context._modified
     ret['_object_type'] = context._object_type
+    if isinstance(request.context, resources.object.NamedObject):
+        ret['_links']['__name__'] = dict(href=request.resource_url(context, '__name__'))
+        # FIXME: namespace this rel and document
+        ret['__name__'] = context.__name__
     return ret
 
 def object_get(context, request):
@@ -108,6 +112,49 @@ def object_delete(context, request):
     context.__parent__.delete_child(context)
     request.response.status_int = 204 # No Content
     return {}
+
+def object_name_options(context, request):
+    request.response.allow = "HEAD,GET,OPTIONS,PUT"
+    request.response.status_int = 204 # No Content
+    return {}
+
+def object_name(context, request):
+    """ A resource representing the __name__ of a NamedObject.
+    Supports GET and PUT (to rename an object).
+    """
+    if request.method == 'GET':
+        ret = dict(__name__ = context.__name__)
+        ret['_links'] = dict(
+            self = dict(href=request.resource_url(context, '__name__')),
+            up = dict(href=request.resource_url(context)),
+        )
+        request.response.content_type = 'application/hal+json'
+        request.response.etag = context._etag
+        request.response.last_modified = context._modified
+        request.response.conditional_response = True
+        return ret
+    elif request.method == 'PUT':
+        err = test_preconditions(context, request)
+        if err: return err
+        name = context.__name__
+        json_body = request.json_body
+        newname = json_body.get('__name__', '').strip()
+        try:
+            context.__parent__.rename_child(name, newname)
+        except Veto, e:
+            request.response.status_int = 400 # Bad Request
+            return dict(error=str(e))
+        if newname == name:
+            obj = context
+        else:
+            obj = context.__parent__[newname]
+        request.response.status_int = 204 # No Content
+        request.response.content_location = request.resource_url(obj)
+        request.response.location = request.resource_url(obj)
+        return {}
+    else:
+        request.response.status_int = 405 # Method Not Allowed
+        return {}
 
 def root_get(context, request):
     ret = {}

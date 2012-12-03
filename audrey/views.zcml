@@ -48,6 +48,23 @@
      />
 
   <view
+     context=".resources.object.NamedObject"
+     name="__name__"
+     view=".views.object_name_options"
+     renderer="json"
+     accept="application/json"
+     request_method="OPTIONS"
+     />
+
+  <view
+     context=".resources.object.NamedObject"
+     name="__name__"
+     view=".views.object_name"
+     renderer="json"
+     accept="application/json"
+     />
+
+  <view
      context=".resources.object.BaseObject"
      view=".views.object_get"
      renderer="json"
