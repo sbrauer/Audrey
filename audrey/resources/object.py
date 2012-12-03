@@ -76,15 +76,19 @@ class BaseObject(object):
             if kwargs.has_key(name):
                 setattr(self, name, kwargs[name])
 
-    def get_schema_values(self):
+    def get_schema_values(self, use_deepcopy=False):
         """ Return a dictionary of this object's schema names and values.
-        (Note that values are deep copies, so modifying them won't affect
+        (If use_deepcopy=True, values are deep copies, so modifying them won't affect
         the Object instance.)
         """
         values = {}
         for name in self.get_schema_names():
             if hasattr(self, name):
-                values[name] = deepcopy(getattr(self, name))
+                val = getattr(self, name)
+                if use_deepcopy:
+                    values[name] = deepcopy(val)
+                else:
+                    values[name] = val
         return values
 
     def get_all_values(self):
@@ -115,6 +119,7 @@ class BaseObject(object):
     def __str__(self):
         return str(self.get_all_values())
 
+    # FIXME: update parents attribute of old and new file attributes
     def save(self, set_modified=True, index=True, set_etag=True):
         if set_modified:
             self._modified = dateutil.utcnow()

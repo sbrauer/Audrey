@@ -24,6 +24,21 @@
      request_method="OPTIONS"
      />
 
+<!--
+  FIXME: expand the "upload" view such that:
+  * POST of any sort other than multipart/form-data creates a file
+  using the Content-Type as mimetype and the value of Slug header as filename
+  * GET returns some sort of docs or help
+-->
+  <view
+     context=".resources.root.Root"
+     name="upload"
+     view=".views.root_upload"
+     header="Content-Type:multipart/form-data.*"
+     renderer="json"
+     request_method="POST"
+     />
+
   <view
      context=".resources.collection.BaseCollection"
      view=".views.collection_get"

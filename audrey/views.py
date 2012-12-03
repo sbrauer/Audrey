@@ -33,6 +33,7 @@ def collection_options(context, request):
 
 def represent_object(context, request):
     ret = context.get_schema_values()
+    # FIXME: add links to all files... perhaps rel="file" (replace with custom rel) and name="ObjectId"
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         collection = dict(href=request.resource_url(context.__parent__)),
@@ -162,8 +163,20 @@ def root_get(context, request):
         self = dict(href=request.resource_url(context)),
         item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_children()],
         search = dict(href=request.resource_url(context, '@@search')+"?search_string={search_string}{&sort}{&collection*}", templated=True),
+        # FIXME: need a custom (and documented) rel
+        upload = dict(href=request.resource_url(context, '@@upload')),
     )
     request.response.content_type = 'application/hal+json'
+    return ret
+
+# FIXME: should i just hardcode a variable name (say "file") instead
+# of trying to be flexible and accept all file uploads as below?
+def root_upload(context, request):
+    ret = {}
+    for (name, val) in request.POST.items():
+        if hasattr(val, 'filename'):
+            _id = context.create_gridfs_file(val)
+            ret[name] = str(_id)
     return ret
 
 # FIXME: replace with an interface?
@@ -187,18 +200,26 @@ class EmbeddingItemHandler(ItemHandler):
 
 class LinkingSearchItemHandler(LinkingItemHandler):
     def handle_item(self, context, request):
-        return dict(name="%s:%s" % (context.__parent__.__name__, context.__name__), href=request.resource_url(context))
+        # Context may be either an object or a dict with object and highlight.
+        if type(context) == dict:
+            object = context['object']
+            highlight = context['highlight']
+        else:
+            object = context
+            highlight = None
+        ret = dict(name="%s:%s" % (object.__parent__.__name__, object.__name__), href=request.resource_url(object))
+        if highlight: ret['highlight'] = highlight
+        return ret
 
 DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
 DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 
-def root_search(context, request, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
+def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
     (batch, per_batch, skip) = get_batch_parms(request)
     sort = request.GET.get('sort', None)
     search_string = request.GET.get('search_string', None)
     collection_names = request.GET.getall('collection')
-    # FIXME: what about highlight fields?
-    result = context.basic_fulltext_search(search_string=search_string, collection_names=collection_names, skip=skip, limit=per_batch, sort=sort)
+    result = context.basic_fulltext_search(search_string=search_string, collection_names=collection_names, skip=skip, limit=per_batch, sort=sort, highlight_fields=highlight_fields)
     total_items = result['total']
     total_batches = total_items / per_batch
     if total_items % per_batch: total_batches += 1

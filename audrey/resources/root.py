@@ -1,6 +1,9 @@
 from pyramid.decorator import reify
 from bson.objectid import ObjectId
+from os.path import basename
 import pyes
+from gridfs import GridFS
+from gridfs.errors import NoFile
 from audrey import sortutil
 from collections import OrderedDict
 
@@ -64,6 +67,11 @@ class Root(object):
 
     def get_mongo_collection(self, coll_name):
         return self._mongo_db[coll_name]
+
+    def get_gridfs(self):
+        # Note that for simplicity we use one GridFS (the default "fs")
+        # for the entire DB/webapp.
+        return GridFS(self._mongo_db)
     
     def get_elastic_connection(self):
         return self.request.registry.settings['elastic_conn']
@@ -74,6 +82,45 @@ class Root(object):
     def get_object_for_collection_and_id(self, collection_name, id):
         coll = self.get_child(collection_name)
         return coll.get_child_by_id(id)
+
+    def get_gridfs_file_for_id(self, id):
+        try:
+            return self.get_gridfs().get(id)
+        except NoFile, e:
+            return None
+
+    def serve_gridfs_file(self, file):
+        response = Response()
+        response.content_type = file.content_type
+        response.last_modified = file.upload_date
+        response.etag = file.md5
+        for chunk in file:
+            response.body_file.write(chunk)
+        file.close()
+        response.content_length = file.length
+        return response
+
+    def serve_gridfs_file_for_id(self, id):
+        file = self.get_gridfs_file_for_id(id)
+        if file is None:
+            return HTTPNotFound("No such file.")
+        return self.serve_gridfs_file(file)
+
+    def create_gridfs_file(self, fieldstorage, parents=None):
+        # The ``fieldstorage`` parm should be an instance of cgi.FieldStorage
+        # (such as found in WebOb request.POST).
+        # ``parents`` should be a list of DBRef objects that "own" the file.
+        # ``parents`` may be an empty list or None.
+        # Returns the ObjectId of the new GridFS file.
+        if parents is None: parents = []
+        filename = fieldstorage.filename
+        # IE likes to include the full path of uploaded files ("c:\foo\bar.gif")
+        if(len(filename) > 1 and filename[1] == ':'): filename = filename[2:]  # remove drive prefix
+        filename = basename(filename.replace('\\', '/'))
+        # FIXME: instead of trusting client's content-type, use python-magic to determine type server-side?
+        mimetype = fieldstorage.headers.get('content-type')
+        # FIXME: if image, get dimensions (via PIL?) and store as two custom attributes (width and height)
+        return self.get_gridfs().put(fieldstorage.file, filename=filename, contentType=mimetype, parents=parents)
 
     def search_raw(self, query=None, doc_types=None, **query_parms):
         """ A thin wrapper around pyes.ES.search_raw().
