@@ -38,24 +38,3 @@ def utcnow(zero_seconds=False):
     now = datetime.datetime.now(pytz.utc)
     if zero_seconds: return now.replace(second=0, microsecond=0)
     return now
-
-# 
-# def get_timezone_for_request(request=None, default='UTC'):
-#     # FIXME: consider making this a user preference
-#     if request:
-#         return request.registry.settings.get('default_timezone', default)
-#     else:
-#         return default
-# 
-# def convert_from_utc_to_request_tz(dt, request):
-#     return convert_from_utc(dt, get_timezone_for_request(request))
-# 
-# def convert_to_utc_from_request_tz(dt, request):
-#     return convert_to_utc(dt, get_timezone_for_request(request))
-# 
-# def today_for_request_tz(request):
-#     """ Return "today's date" for the request's timezone.
-#     Kinda tricky since at any moment there are always two current dates, depending on your local timezone.
-#     On the other hand, there's only one UTC date at any moment.
-#     """
-#     return convert_from_utc_to_request_tz(datetime.datetime.utcnow(), request).date()

@@ -25,10 +25,10 @@
      />
 
 <!--
-  FIXME: expand the "upload" view such that:
-  * POST of any sort other than multipart/form-data creates a file
-  using the Content-Type as mimetype and the value of Slug header as filename
-  * GET returns some sort of docs or help
+FIXME: expand the "upload" view such that:
+* POST of any sort other than multipart/form-data creates a file
+using the Content-Type as mimetype and the value of Slug header as filename
+* GET returns some sort of docs or help
 -->
   <view
      context=".resources.root.Root"
@@ -37,6 +37,31 @@
      header="Content-Type:multipart/form-data.*"
      renderer="json"
      request_method="POST"
+     />
+
+<!--
+FIXME: should we really allow access to an GridFS file by ID this way?
+Not very secure for sensitive files.
+Maybe comment this view out...?
+-->
+   <view
+     context=".resources.root.Root"
+     name="download"
+     view=".views.root_download"
+     request_method="GET"
+     />
+
+   <view
+     context=".resources.object.BaseObject"
+     name="download"
+     view=".views.object_download"
+     request_method="GET"
+     />
+
+   <view
+     context=".resources.file.File"
+     view=".views.file_serve"
+     request_method="GET"
      />
 
   <view

@@ -2,18 +2,18 @@ import unittest
 from pyramid import testing
 
 # FIXME: this is just the default from the starter scaffold
-class ViewTests(unittest.TestCase):
-    def setUp(self):
-        self.config = testing.setUp()
-
-    def tearDown(self):
-        testing.tearDown()
-
-    def test_my_view(self):
-        from .views import my_view
-        request = testing.DummyRequest()
-        info = my_view(request)
-        self.assertEqual(info['project'], 'Audrey')
+# class ViewTests(unittest.TestCase):
+#     def setUp(self):
+#         self.config = testing.setUp()
+# 
+#     def tearDown(self):
+#         testing.tearDown()
+# 
+#     def test_my_view(self):
+#         from .views import my_view
+#         request = testing.DummyRequest()
+#         info = my_view(request)
+#         self.assertEqual(info['project'], 'Audrey')
 
 import datetime
 today = datetime.datetime.utcnow().date()
@@ -237,7 +237,7 @@ class ObjectTests(unittest.TestCase):
         request = testing.DummyRequest()
         instance = _makeOneBaseObject(request)
         doc = instance.get_mongo_save_doc()
-        self.assertEqual(doc, {'body': '<p>Some body.</p>', '_created': None, '_modified': None, 'title': 'A Title', 'dateline': today_with_time, 'tags': ['foo', 'bar']})
+        self.assertEqual(doc, {'body': '<p>Some body.</p>', '_created': None, '_modified': None, 'title': 'A Title', 'dateline': today_with_time, 'tags': ['foo', 'bar'], "_etag": instance._etag})
 
     def test_load_mongo_doc(self):
         request = testing.DummyRequest()

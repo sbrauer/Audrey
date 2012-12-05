@@ -7,37 +7,19 @@
 
 [x] Implement Elastic stuff
 
-[ ] Implement RESTful views (for CRUD, "forms" and search)
-
-    Pyramid json references:
-    http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/api/renderers.html?highlight=json#pyramid.renderers.JSON
-    http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/renderers.html#json-serializing-custom-objects
-    http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/webob.html#dealing-with-a-json-encoded-request-body
-
-    To handle PUT requests on a resource that doesn't yet exist,
-    try hooking into the NotFound view (http://docs.pylonsproject.org/projects/pyramid/en/1.0-branch/narr/hooks.html)
-    Something like this:
-    def notfound_view(request):
-        if request.method == 'PUT':
-            if isinstance(request.context, audrey.resources.NamingCollection):
-                # Get next path component from URL and try to use as an ID
-                # to create a new object.
-                # FIXME: what if id isn't valid?
-                # FIXME: If collection is heterogenous, how do we determine
-                # the object type to try to create?
-                # Perhaps a custom request header or a "_object_type" key
-                # in the JSON request body.
-                return result similar to collection_post()
-        # Just do a normal 404
-        return HTTPNotFound()
-
+[x] Implement RESTful views (for CRUD, "forms" and search)
 
 [ ] Setup a pcreate scaffold, and create a demo app that uses it.
     See http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/scaffolding.html
     The demo app could include a frontend that uses Knockout.
     What should the demo app be?  A blog maybe?
 
-[ ] Add support for files and GridFS (and Elastic attachment support?)
+[ ] Flesh out support for inter-object references and be sure to link
+    to referenced objects in "_links" section of object GET view
+    (with a new namespaced "referenced" rel)
+
+[x] Add support for files and GridFS
+[ ] Index files in Elastic using its support for attachments?
 
 [ ] In REST views, treat files as separate resources.
     Example: /people/sam-brauer/photo (GET, PUT, DELETE)

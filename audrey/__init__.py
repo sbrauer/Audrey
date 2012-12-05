@@ -1,6 +1,7 @@
 from pyramid.config import Configurator
 from pyramid.settings import aslist
 import pymongo
+from gridfs import GridFS
 import pyes
 from audrey.resources import root_factory, root
 
@@ -40,8 +41,14 @@ def audrey_main(root_factory, root_cls, global_config, **settings):
 
     # Do initialization based on custom settings.
     mongo_conn = pymongo.Connection(mongo_uri, tz_aware=True)
+    mongo_db = mongo_conn[settings['mongo_name']]
+    # Note that for simplicity we use one GridFS (the default "fs")
+    # for the entire DB/webapp.
+    gridfs = GridFS(mongo_db)
     config.registry.settings['mongo_conn'] = mongo_conn
-    ensure_mongo_indexes(mongo_conn, settings['mongo_name'], root_cls)
+    config.registry.settings['mongo_db'] = mongo_db
+    config.registry.settings['gridfs'] = gridfs
+    ensure_mongo_indexes(mongo_db, root_cls)
 
     # Not all projects will use Elastic.
     elastic_conn = None
@@ -53,8 +60,7 @@ def audrey_main(root_factory, root_cls, global_config, **settings):
     # Finally, return a wsgi app.
     return config.make_wsgi_app()
 
-def ensure_mongo_indexes(conn, db_name, root_cls):
-    db = conn[db_name]
+def ensure_mongo_indexes(db, root_cls):
     for coll_cls in root_cls.get_collection_classes():
         mongo_coll = db[coll_cls._collection_name]
         for (key_or_list, kwargs) in coll_cls.get_mongo_indexes():

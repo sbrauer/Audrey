@@ -1,10 +1,16 @@
 import colander
 from audrey import dateutil
 from audrey.htmlutil import html_to_text
+from audrey.resources.file import File
+from audrey.resources.generic import make_traversable
 from copy import deepcopy
 import datetime
 import pyes
 import hashlib
+from bson.dbref import DBRef
+from pyramid.traversal import find_root
+
+GRIDFS_COLLECTION = "fs"
 
 class BaseObject(object):
     """ Base class for objects that can be stored in MongoDB.
@@ -119,15 +125,36 @@ class BaseObject(object):
     def __str__(self):
         return str(self.get_all_values())
 
-    # FIXME: update parents attribute of old and new file attributes
+    def get_all_files(self):
+        return _find_files(self.get_all_values()).values()
+
     def save(self, set_modified=True, index=True, set_etag=True):
         if set_modified:
             self._modified = dateutil.utcnow()
             if not getattr(self, '_created', None): self._created = self._modified
         if set_etag:
             self._etag = self.generate_etag()
+
+        dbref = self.get_dbref()
+        root = find_root(self)
+        fs_files_coll = root.get_gridfs()._GridFS__files
+        new_file_ids = set([x._id for x in self.get_all_files()])
+        old_file_ids = set()
+        if self._id:
+            for item in fs_files_coll.find({'parents':dbref}, fields=[]):
+                old_file_ids.add(item['_id'])
+
         doc = self.get_mongo_save_doc()
         self._id = self.get_mongo_collection().save(doc, safe=True)
+
+        # Update GridFS file parents
+        ids_to_remove = old_file_ids - new_file_ids
+        ids_to_add = new_file_ids - old_file_ids
+        if ids_to_remove:
+            fs_files_coll.update({'_id':{'$in':list(ids_to_remove)}}, {"$pull":{"parents":dbref}}, multi=True)
+        if ids_to_add:
+            fs_files_coll.update({'_id':{'$in':list(ids_to_add)}}, {"$addToSet":{"parents":dbref}}, multi=True)
+
         if index: self.index()
 
     def generate_etag(self):
@@ -140,8 +167,21 @@ class BaseObject(object):
         self.set_schema_values(**clean)
         self.set_nonschema_values(**clean)
 
+    def get_dbref(self, include_database=False):
+        coll = self.get_mongo_collection()
+        dbname = None
+        if include_database:
+            dbname = coll.database.name 
+        return DBRef(coll.name, self._id, dbname)
+
     def _pre_delete(self):
+        # Remove from ElasticSearch
         self.unindex()
+        # Update parents attribute of related GridFS files
+        dbref = self.get_dbref()
+        root = find_root(self)
+        fs_files_coll = root.get_gridfs()._GridFS__files
+        fs_files_coll.update({'parents':dbref}, {"$pull":{"parents":dbref}}, multi=True)
 
     def index(self):
         if not self.use_elastic(): return
@@ -192,6 +232,14 @@ class BaseObject(object):
         #    pass # FIXME: handle PDF, Word, etc?
         return result
 
+    # Allow traversal to File attributes
+    def __getitem__(self, name):
+        if hasattr(self, name):
+            val = getattr(self, name)
+            if val is not None:
+                return make_traversable(val, name, self)
+        raise KeyError
+
 class NamedObject(BaseObject):
 
     def get_nonschema_values(self):
@@ -210,14 +258,19 @@ class NamedObject(BaseObject):
 
 
 # Crawl over node and make sure all types are compatible with pymongo.
-# FIXME: what about files?  Maybe we need a File class that we replace
-# with the gridfs ObjectId in this method...
-# Whatever we do, we'd need to do the reverse when loading data back from mongo.
 def _mongify_values(node):
 
     # Pymongo can't handle date objects (without time), so coerce all dates to datetimes.
     if type(node) is datetime.date:
         return datetime.datetime.combine(node, datetime.time())
+
+    # Store a pseudo-DBRef for instances of our File class.
+    # Is say "pseudo" because it won't dereference properly
+    # due to the collection name (while "fs.files" would dereference).
+    # However our intent is not to use it as a normal DBRef but 
+    # instead as a way to recognize ObjectIds referring to GridFS files.
+    if type(node) is File:
+        return DBRef(GRIDFS_COLLECTION, node._id)
 
     # Pymongo can't handle sets, so coerce to lists.
     if type(node) is set:
@@ -239,6 +292,10 @@ def _demongify_values(node):
     if type(node) is datetime.datetime:
         return dateutil.make_aware(node)
 
+    if type(node) is DBRef:
+        if node.collection == GRIDFS_COLLECTION:
+            return File(node.id)
+
     if type(node) == dict:
         results = {}
         for (key, value) in node.items():
@@ -248,3 +305,18 @@ def _demongify_values(node):
         return [_demongify_values(item) for item in node]
     else:
         return node
+
+# Crawl over node looking for File instances.
+# Return a dict of all File instances keyed by ObjectId.
+def _find_files(node):
+    ret = {}
+    if type(node) is File:
+        ret[node._id] = node
+    elif type(node) == dict:
+        for value in node.values():
+            ret.update(_find_files(value))
+    elif type(node) in (set, list):
+        for value in node:
+            ret.update(_find_files(value))
+    return ret
+

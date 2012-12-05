@@ -4,6 +4,8 @@ from pyramid.httpexceptions import HTTPNotFound
 import resources
 from exceptions import Veto
 import sortutil
+from bson.objectid import ObjectId
+import audrey.resources
 
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
@@ -32,20 +34,22 @@ def collection_options(context, request):
     return {}
 
 def represent_object(context, request):
-    ret = context.get_schema_values()
-    # FIXME: add links to all files... perhaps rel="file" (replace with custom rel) and name="ObjectId"
+    ret = context.get_all_values()
+    #ret = context.get_schema_values()
+    #ret['_id'] = str(context._id)
+    #ret['_created'] = context._created
+    #ret['_modified'] = context._modified
+    ret['_object_type'] = context._object_type
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         collection = dict(href=request.resource_url(context.__parent__)),
     )
-    ret['_id'] = str(context._id)
-    ret['_created'] = context._created
-    ret['_modified'] = context._modified
-    ret['_object_type'] = context._object_type
     if isinstance(request.context, resources.object.NamedObject):
-        ret['_links']['__name__'] = dict(href=request.resource_url(context, '__name__'))
-        # FIXME: namespace this rel and document
         ret['__name__'] = context.__name__
+        # FIXME: namespace this rel and document
+        ret['_links']['__name__'] = dict(href=request.resource_url(context, '__name__'))
+    # FIXME: namespace and document the "file" rel
+    ret['_links']['file'] = [dict(name=str(f._id), href=request.resource_url(context, '@@download', str(f._id))) for f in context.get_all_files()]
     return ret
 
 def object_get(context, request):
@@ -162,7 +166,7 @@ def root_get(context, request):
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_children()],
-        search = dict(href=request.resource_url(context, '@@search')+"?search_string={search_string}{&sort}{&collection*}", templated=True),
+        search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&sort}{&collection*}", templated=True),
         # FIXME: need a custom (and documented) rel
         upload = dict(href=request.resource_url(context, '@@upload')),
     )
@@ -178,6 +182,23 @@ def root_upload(context, request):
             _id = context.create_gridfs_file(val)
             ret[name] = str(_id)
     return ret
+
+def root_download(context, request):
+    # Handle urls of the form: "/download/gridfs_id"
+    return context.serve_gridfs_file_for_id(ObjectId(request.subpath[0]))
+
+def object_download(context, request):
+    # Handle urls of the form: "/some/object/download/gridfs_id"
+    # Only allow download of files "owned" by the context object.
+    f = audrey.resources.file.File(ObjectId(request.subpath[0]))
+    gf = f.get_gridfs_file(request)
+    if gf and (context.get_dbref() in gf.parents):
+        return f.serve(request)
+    return HTTPNotFound()
+
+def file_serve(context, request):
+    # Serve an audrey.resources.file.File
+    return context.serve(request)
 
 # FIXME: replace with an interface?
 class ItemHandler(object):
@@ -217,9 +238,9 @@ DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
     (batch, per_batch, skip) = get_batch_parms(request)
     sort = request.GET.get('sort', None)
-    search_string = request.GET.get('search_string', None)
+    q = request.GET.get('q', None)
     collection_names = request.GET.getall('collection')
-    result = context.basic_fulltext_search(search_string=search_string, collection_names=collection_names, skip=skip, limit=per_batch, sort=sort, highlight_fields=highlight_fields)
+    result = context.basic_fulltext_search(search_string=q, collection_names=collection_names, skip=skip, limit=per_batch, sort=sort, highlight_fields=highlight_fields)
     total_items = result['total']
     total_batches = total_items / per_batch
     if total_items % per_batch: total_batches += 1
@@ -231,8 +252,8 @@ def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SE
         batch = batch,
         per_batch = per_batch,
         sort = sort,
-        search_string = search_string,
         collections = collection_names,
+        q = q,
     )
     query_dict = {}
     query_dict.update(request.GET)

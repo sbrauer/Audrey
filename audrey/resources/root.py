@@ -1,11 +1,9 @@
-from pyramid.decorator import reify
 from bson.objectid import ObjectId
 from os.path import basename
 import pyes
-from gridfs import GridFS
-from gridfs.errors import NoFile
 from audrey import sortutil
 from collections import OrderedDict
+from audrey.resources.file import File
 
 class Root(object):
 
@@ -61,17 +59,14 @@ class Root(object):
     def get_mongo_db_name(self):
         return self.request.registry.settings['mongo_name']
 
-    @reify
-    def _mongo_db(self):
-        return self.get_mongo_connection()[self.get_mongo_db_name()]
+    def get_mongo_db(self):
+        return self.request.registry.settings['mongo_db']
 
     def get_mongo_collection(self, coll_name):
-        return self._mongo_db[coll_name]
+        return self.get_mongo_db()[coll_name]
 
     def get_gridfs(self):
-        # Note that for simplicity we use one GridFS (the default "fs")
-        # for the entire DB/webapp.
-        return GridFS(self._mongo_db)
+        return self.request.registry.settings['gridfs']
     
     def get_elastic_connection(self):
         return self.request.registry.settings['elastic_conn']
@@ -83,28 +78,8 @@ class Root(object):
         coll = self.get_child(collection_name)
         return coll.get_child_by_id(id)
 
-    def get_gridfs_file_for_id(self, id):
-        try:
-            return self.get_gridfs().get(id)
-        except NoFile, e:
-            return None
-
-    def serve_gridfs_file(self, file):
-        response = Response()
-        response.content_type = file.content_type
-        response.last_modified = file.upload_date
-        response.etag = file.md5
-        for chunk in file:
-            response.body_file.write(chunk)
-        file.close()
-        response.content_length = file.length
-        return response
-
     def serve_gridfs_file_for_id(self, id):
-        file = self.get_gridfs_file_for_id(id)
-        if file is None:
-            return HTTPNotFound("No such file.")
-        return self.serve_gridfs_file(file)
+        return File(id).serve(self.request)
 
     def create_gridfs_file(self, fieldstorage, parents=None):
         # The ``fieldstorage`` parm should be an instance of cgi.FieldStorage
