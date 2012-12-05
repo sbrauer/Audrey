@@ -265,7 +265,7 @@ def _mongify_values(node):
         return datetime.datetime.combine(node, datetime.time())
 
     # Store a pseudo-DBRef for instances of our File class.
-    # Is say "pseudo" because it won't dereference properly
+    # I say "pseudo" because it won't dereference properly
     # due to the collection name (while "fs.files" would dereference).
     # However our intent is not to use it as a normal DBRef but 
     # instead as a way to recognize ObjectIds referring to GridFS files.
