@@ -3,7 +3,6 @@ from audrey import dateutil
 from audrey.htmlutil import html_to_text
 from audrey.resources.file import File
 from audrey.resources.generic import make_traversable
-from copy import deepcopy
 import datetime
 import pyes
 import hashlib
@@ -82,19 +81,13 @@ class BaseObject(object):
             if kwargs.has_key(name):
                 setattr(self, name, kwargs[name])
 
-    def get_schema_values(self, use_deepcopy=False):
+    def get_schema_values(self):
         """ Return a dictionary of this object's schema names and values.
-        (If use_deepcopy=True, values are deep copies, so modifying them won't affect
-        the Object instance.)
         """
         values = {}
         for name in self.get_schema_names():
             if hasattr(self, name):
-                val = getattr(self, name)
-                if use_deepcopy:
-                    values[name] = deepcopy(val)
-                else:
-                    values[name] = val
+                values[name] = getattr(self, name)
         return values
 
     def get_all_values(self):
@@ -135,6 +128,8 @@ class BaseObject(object):
         if set_etag:
             self._etag = self.generate_etag()
 
+        # Determine all the GridFS file ids that this object
+        # now refers to and used to refer to.
         dbref = self.get_dbref()
         root = find_root(self)
         fs_files_coll = root.get_gridfs()._GridFS__files
@@ -144,10 +139,11 @@ class BaseObject(object):
             for item in fs_files_coll.find({'parents':dbref}, fields=[]):
                 old_file_ids.add(item['_id'])
 
+        # Persist the object in Mongo.
         doc = self.get_mongo_save_doc()
         self._id = self.get_mongo_collection().save(doc, safe=True)
 
-        # Update GridFS file parents
+        # Update GridFS file "parents".
         ids_to_remove = old_file_ids - new_file_ids
         ids_to_add = new_file_ids - old_file_ids
         if ids_to_remove:
@@ -224,7 +220,6 @@ class BaseObject(object):
                     result += self._get_text_values_for_schema_node(cnode, val)
         elif type(node.typ) == colander.String:
             if getattr(node, 'include_in_text', True):
-                #if type(node.widget) == deform.widget.RichTextWidget:
                 if getattr(node, 'is_html', False):
                     value = html_to_text(value, 0)
                 if value: result.append(value)

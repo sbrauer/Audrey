@@ -81,21 +81,25 @@ class Root(object):
     def serve_gridfs_file_for_id(self, id):
         return File(id).serve(self.request)
 
-    def create_gridfs_file(self, fieldstorage, parents=None):
+    def create_gridfs_file(self, file, filename, mimetype, parents=None):
+        # Returns the ObjectId of the new GridFS file.
+        if parents is None: parents = []
+        # FIXME: if image, get dimensions (via PIL?) and store as two custom attributes (width and height)
+        return self.get_gridfs().put(file, filename=filename, contentType=mimetype, parents=parents)
+
+    def create_gridfs_file_from_fieldstorage(self, fieldstorage, parents=None):
         # The ``fieldstorage`` parm should be an instance of cgi.FieldStorage
         # (such as found in WebOb request.POST).
         # ``parents`` should be a list of DBRef objects that "own" the file.
         # ``parents`` may be an empty list or None.
         # Returns the ObjectId of the new GridFS file.
-        if parents is None: parents = []
         filename = fieldstorage.filename
         # IE likes to include the full path of uploaded files ("c:\foo\bar.gif")
         if(len(filename) > 1 and filename[1] == ':'): filename = filename[2:]  # remove drive prefix
         filename = basename(filename.replace('\\', '/'))
         # FIXME: instead of trusting client's content-type, use python-magic to determine type server-side?
         mimetype = fieldstorage.headers.get('content-type')
-        # FIXME: if image, get dimensions (via PIL?) and store as two custom attributes (width and height)
-        return self.get_gridfs().put(fieldstorage.file, filename=filename, contentType=mimetype, parents=parents)
+        return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents)
 
     def search_raw(self, query=None, doc_types=None, **query_parms):
         """ A thin wrapper around pyes.ES.search_raw().
