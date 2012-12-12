@@ -6,9 +6,11 @@ from exceptions import Veto
 import sortutil
 from bson.objectid import ObjectId
 import audrey.resources
+from audrey.colanderutil import AudreySchemaConverter
 
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
+SCHEMA_CONVERTER = AudreySchemaConverter()
 
 # FIXME: consider returning some sort of documentation
 # in the OPTIONS response body...
@@ -295,6 +297,8 @@ def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context, query=query_dict)),
         collection = dict(href=request.resource_url(context.__parent__)),
+        # FIXME: namespace and document "schema" rel
+        schema = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_class_names()],
     )
     if batch > 1:
         query_dict['batch'] = batch-1
@@ -327,7 +331,7 @@ def collection_post(context, request, __name__=None):
     json_body = request.json_body
     _object_type = json_body.get('_object_type', None)
     if _object_type:
-        object_class = context._object_classes_by_type.get(_object_type, None)
+        object_class = context.get_object_class(_object_type)
     else:
         classes = context.get_object_classes()
         if len(classes) == 1:
@@ -358,6 +362,16 @@ def collection_post(context, request, __name__=None):
     request.response.content_location = request.resource_url(obj)
     request.response.location = request.resource_url(obj)
     return {}
+
+def collection_schema(context, request):
+    # Handle urls of the form: "/collection/@@schema/object_type"
+    object_type = request.subpath[0]
+    object_class = context.get_object_class(object_type)
+    if object_class is None:
+        return HTTPNotFound()
+    schema = object_class.get_class_schema(request=request)
+    request.response.content_type = 'application/schema+json' # FIXME?
+    return SCHEMA_CONVERTER.to_jsonschema(schema)
 
 def notfound_put(request):
     if isinstance(request.context, resources.collection.NamingCollection):

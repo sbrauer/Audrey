@@ -66,6 +66,15 @@ Maybe comment this view out...?
 
   <view
      context=".resources.collection.BaseCollection"
+     name="schema"
+     view=".views.collection_schema"
+     renderer="json"
+     accept="application/hal+json"
+     request_method="GET"
+     />
+
+  <view
+     context=".resources.collection.BaseCollection"
      view=".views.collection_get"
      renderer="json"
      accept="application/hal+json"

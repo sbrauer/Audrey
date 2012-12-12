@@ -29,8 +29,10 @@ class SchemaConverter(object):
             raise ValueError, "Unexpected node type: %r" % nodetype
         else:
             ret = converter(node)
-            ret['title'] = node.title
-            ret['description'] = node.description
+            if node.title:
+                ret['title'] = node.title
+            if node.description:
+                ret['description'] = node.description
             if node.default != colander.null:
                 ret['default'] = node.default
             return ret

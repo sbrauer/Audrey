@@ -66,6 +66,12 @@ class BaseCollection(object):
                 raise ValueError("Non-unique object type: %s" % obj_type)
             self._object_classes_by_type[obj_type] = obj_cls
 
+    def get_object_class_names(self):
+        return self._object_classes_by_type.keys()
+
+    def get_object_class(self, object_type):
+        return self._object_classes_by_type.get(object_type)
+
     def get_mongo_collection(self):
         return self.__parent__.get_mongo_collection(self._collection_name)
 
@@ -92,7 +98,7 @@ class BaseCollection(object):
     # the documents stored in Mongo have some data that identifies what
     # Object class should be used to construct instances, and override
     # this method to return the appropriate class for a given document.
-    # return self._object_classes_by_type.get(obj_type)
+    # return self.get_object_class(obj_type)
     def _get_child_class_from_mongo_doc(self, doc):
         classes = self.get_object_classes()
         if classes: return classes[0]
