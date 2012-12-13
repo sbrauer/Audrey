@@ -35,7 +35,7 @@ def audrey_main(root_factory, root_cls, global_config, **settings):
         return dict(ObjectId=str(obj))
     json_renderer.add_adapter(ObjectId, objectid_adapter)
     def dbref_adapter(obj, request):
-        ret = dict(collection=obj.collection, ObjectId=str(obj,id))
+        ret = dict(collection=obj.collection, ObjectId=str(obj.id))
         if obj.database:
             ret['database'] = obj.database
         return ret
