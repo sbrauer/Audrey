@@ -8,14 +8,12 @@ from bson.objectid import ObjectId
 import audrey.resources
 from audrey.colanderutil import AudreySchemaConverter
 
+# FIXME: change object renaming to use a collection-level POST endpoint
+# instead of the __name__ view and rel.
+
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
 SCHEMA_CONVERTER = AudreySchemaConverter()
-
-# FIXME: consider returning some sort of documentation
-# in the OPTIONS response body...
-# Perhaps a JSON document with details of the supported POST and/or PUT
-# requests?
 
 def object_options(context, request):
     request.response.allow = "HEAD,GET,OPTIONS,PUT,DELETE"
@@ -45,6 +43,7 @@ def represent_object(context, request):
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         collection = dict(href=request.resource_url(context.__parent__)),
+        describedby = dict(href=request.resource_url(context.__parent__, '@@schema', context._object_type)),
     )
     if isinstance(request.context, resources.object.NamedObject):
         ret['__name__'] = context.__name__
@@ -93,6 +92,7 @@ def object_put(context, request):
     # 400 Bad Request: Validation failed.
     err = test_preconditions(context, request)
     if err: return err
+    # FIXME: confirm that _object_type in json_body is correct?
     schema = context.get_schema()
     try:
         deserialized = schema.deserialize(request.json_body)
@@ -169,7 +169,7 @@ def root_get(context, request):
         self = dict(href=request.resource_url(context)),
         item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_children()],
         search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&sort}{&collection*}", templated=True),
-        # FIXME: need a custom (and documented) rel
+        # FIXME: namespace this rel and document
         upload = dict(href=request.resource_url(context, '@@upload')),
     )
     request.response.content_type = 'application/hal+json'
@@ -292,13 +292,18 @@ def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_
         per_batch = per_batch,
         sort = sort_string,
     )
+    if isinstance(context, resources.collection.NamingCollection):
+        create_method = 'PUT'
+    else:
+        create_method = 'POST'
+    ret['_factory'] = dict(method=create_method, schemas=context.get_object_types())
     query_dict = {}
     query_dict.update(request.GET)
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context, query=query_dict)),
         collection = dict(href=request.resource_url(context.__parent__)),
         # FIXME: namespace and document "schema" rel
-        schema = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_class_names()],
+        schema = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_types()],
     )
     if batch > 1:
         query_dict['batch'] = batch-1
@@ -317,8 +322,7 @@ def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_
 def collection_post(context, request, __name__=None):
     # Create a new object/resource.
     # Request body should be a JSON document with
-    # the new object's schema values (and optional _object_type;
-    # required for heterogenous collections).
+    # the new object's schema values (and _object_type).
     # On success, return 201 Created with an empty body and Content-Location
     # header with url of new resource.
     # On failure, response is simple application/json document
@@ -333,12 +337,8 @@ def collection_post(context, request, __name__=None):
     if _object_type:
         object_class = context.get_object_class(_object_type)
     else:
-        classes = context.get_object_classes()
-        if len(classes) == 1:
-            object_class = classes[0]
-        else:
-            request.response.status_int = 400 # Bad Request
-            return dict(error='Request is missing _object_type.')
+        request.response.status_int = 400 # Bad Request
+        return dict(error='Request is missing _object_type.')
     if object_class is None:
         request.response.status_int = 400 # Bad Request
         return dict(error='Unsupported _object_type.')
@@ -364,14 +364,20 @@ def collection_post(context, request, __name__=None):
     return {}
 
 def collection_schema(context, request):
-    # Handle urls of the form: "/collection/@@schema/object_type"
+    # Serve a JSON Schema for an object_type (specified as first subpath item).
     object_type = request.subpath[0]
     object_class = context.get_object_class(object_type)
     if object_class is None:
         return HTTPNotFound()
     schema = object_class.get_class_schema(request=request)
-    request.response.content_type = 'application/schema+json' # FIXME?
-    return SCHEMA_CONVERTER.to_jsonschema(schema)
+    jsonschema = SCHEMA_CONVERTER.to_jsonschema(schema)
+    jsonschema['properties']['_object_type'] = dict(
+        type='string',
+        required=True,
+        enum=[object_type],
+    )
+    request.response.content_type = 'application/schema+json'
+    return jsonschema
 
 def notfound_put(request):
     if isinstance(request.context, resources.collection.NamingCollection):

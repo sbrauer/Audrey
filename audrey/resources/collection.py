@@ -66,8 +66,8 @@ class BaseCollection(object):
                 raise ValueError("Non-unique object type: %s" % obj_type)
             self._object_classes_by_type[obj_type] = obj_cls
 
-    def get_object_class_names(self):
-        return self._object_classes_by_type.keys()
+    def get_object_types(self):
+        return [cls._object_type for cls in self.get_object_classes()]
 
     def get_object_class(self, object_type):
         return self._object_classes_by_type.get(object_type)
