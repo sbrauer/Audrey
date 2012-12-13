@@ -177,8 +177,6 @@ OBJECTID_REGEX = '^[0-9a-f]{24}$'
 
 class AudreySchemaConverter(SchemaConverter):
 
-    # FIXME: add ObjectId and DBRef converters
-
     def convert_gridfile(self, node):
         ret = {}
         if node.required:
@@ -192,7 +190,37 @@ class AudreySchemaConverter(SchemaConverter):
         )
         return ret
 
+    def convert_objectid(self, node):
+        ret = {}
+        if node.required:
+            ret['type'] = 'object'
+            ret['required'] = True
+        else:
+            ret['type'] = ['null', 'object']
+            ret['required'] = False
+        ret['properties'] = dict(
+            ObjectId=dict(type='string', required=True, pattern=OBJECTID_REGEX)
+        )
+        return ret
+
+    def convert_dbref(self, node):
+        ret = {}
+        if node.required:
+            ret['type'] = 'object'
+            ret['required'] = True
+        else:
+            ret['type'] = ['null', 'object']
+            ret['required'] = False
+        ret['properties'] = dict(
+            collection=dict(type='string', required=True, minLength=1),
+            ObjectId=dict(type='string', required=True, pattern=OBJECTID_REGEX),
+            database=dict(type='string', required=False),
+        )
+        return ret
+
     def __init__(self):
         SchemaConverter.__init__(self)
-        self.converters[audrey.types.GridFile] = self.convert_gridfile
+        self.converters[audrey.types.File] = self.convert_gridfile
+        self.converters[audrey.types.DBRef] = self.convert_dbref
+        self.converters[audrey.types.ObjectId] = self.convert_objectid
 

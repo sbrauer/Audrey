@@ -22,7 +22,7 @@ class File(object):
         return self._gridfs_file
 
     def __json__(self, request):
-        return str(self._id)
+        return dict(FileId=str(self._id))
 
     def __cmp__(self, other):
         return cmp(self._id, other._id)

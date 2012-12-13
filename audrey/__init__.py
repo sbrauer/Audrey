@@ -8,6 +8,7 @@ from audrey.resources import root_factory, root
 from pyramid.renderers import JSON
 import datetime
 from bson.objectid import ObjectId
+from bson.dbref import DBRef
 
 def audrey_main(root_factory, root_cls, global_config, **settings):
     """ This function returns a Pyramid WSGI application.
@@ -31,8 +32,14 @@ def audrey_main(root_factory, root_cls, global_config, **settings):
         return obj.isoformat()
     json_renderer.add_adapter(datetime.datetime, datetime_adapter)
     def objectid_adapter(obj, request):
-        return str(obj)
+        return dict(ObjectId=str(obj))
     json_renderer.add_adapter(ObjectId, objectid_adapter)
+    def dbref_adapter(obj, request):
+        ret = dict(collection=obj.collection, ObjectId=str(obj,id))
+        if obj.database:
+            ret['database'] = obj.database
+        return ret
+    json_renderer.add_adapter(DBRef, dbref_adapter)
     config.add_renderer('json', json_renderer)
 
     zcml_file = settings.get('configure_zcml', 'configure.zcml')
