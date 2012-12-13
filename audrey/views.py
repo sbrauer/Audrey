@@ -8,9 +8,6 @@ from bson.objectid import ObjectId
 import audrey.resources
 from audrey.colanderutil import AudreySchemaConverter
 
-# FIXME: change object renaming to use a collection-level POST endpoint
-# instead of the __name__ view and rel.
-
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
 SCHEMA_CONVERTER = AudreySchemaConverter()
@@ -39,16 +36,14 @@ def represent_object(context, request):
     #ret['_id'] = str(context._id)
     #ret['_created'] = context._created
     #ret['_modified'] = context._modified
+    #if isinstance(request.context, resources.object.NamedObject):
+    #    ret['__name__'] = context.__name__
     ret['_object_type'] = context._object_type
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         collection = dict(href=request.resource_url(context.__parent__)),
         describedby = dict(href=request.resource_url(context.__parent__, '@@schema', context._object_type)),
     )
-    if isinstance(request.context, resources.object.NamedObject):
-        ret['__name__'] = context.__name__
-        # FIXME: namespace this rel and document
-        ret['_links']['__name__'] = dict(href=request.resource_url(context, '__name__'))
     # FIXME: namespace and document the "file" rel
     ret['_links']['file'] = [dict(name=str(f._id), href=request.resource_url(context, '@@download', str(f._id))) for f in context.get_all_files()]
     return ret
@@ -120,48 +115,20 @@ def object_delete(context, request):
     request.response.status_int = 204 # No Content
     return {}
 
-def object_name_options(context, request):
-    request.response.allow = "HEAD,GET,OPTIONS,PUT"
+def collection_rename(context, request):
+    json_body = request.json_body
+    from_name = json_body.get('from_name', '').strip()
+    to_name = json_body.get('to_name', '').strip()
+    try:
+        context.rename_child(from_name, to_name)
+    except Veto, e:
+        request.response.status_int = 400 # Bad Request
+        return dict(error=str(e))
+    obj = context[to_name]
     request.response.status_int = 204 # No Content
+    request.response.content_location = request.resource_url(obj)
+    request.response.location = request.resource_url(obj)
     return {}
-
-def object_name(context, request):
-    """ A resource representing the __name__ of a NamedObject.
-    Supports GET and PUT (to rename an object).
-    """
-    if request.method == 'GET':
-        ret = dict(__name__ = context.__name__)
-        ret['_links'] = dict(
-            self = dict(href=request.resource_url(context, '__name__')),
-            up = dict(href=request.resource_url(context)),
-        )
-        request.response.content_type = 'application/hal+json'
-        request.response.etag = context._etag
-        request.response.last_modified = context._modified
-        request.response.conditional_response = True
-        return ret
-    elif request.method == 'PUT':
-        err = test_preconditions(context, request)
-        if err: return err
-        name = context.__name__
-        json_body = request.json_body
-        newname = json_body.get('__name__', '').strip()
-        try:
-            context.__parent__.rename_child(name, newname)
-        except Veto, e:
-            request.response.status_int = 400 # Bad Request
-            return dict(error=str(e))
-        if newname == name:
-            obj = context
-        else:
-            obj = context.__parent__[newname]
-        request.response.status_int = 204 # No Content
-        request.response.content_location = request.resource_url(obj)
-        request.response.location = request.resource_url(obj)
-        return {}
-    else:
-        request.response.status_int = 405 # Method Not Allowed
-        return {}
 
 def root_get(context, request):
     ret = {}
@@ -305,6 +272,9 @@ def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_
         # FIXME: namespace and document "schema" rel
         schema = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_types()],
     )
+    if isinstance(context, resources.collection.NamingCollection):
+        # FIXME: namespace and document "rename" rel
+        ret['_links']['rename'] = dict(href=request.resource_url(context, '@@rename'))
     if batch > 1:
         query_dict['batch'] = batch-1
         ret['_links']['prev'] = dict(href=request.resource_url(context, query=query_dict))

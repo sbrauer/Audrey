@@ -89,28 +89,20 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.collection.BaseCollection"
-     view=".views.collection_post"
+     context=".resources.collection.NamingCollection"
+     name="rename"
+     view=".views.collection_rename"
      renderer="json"
      accept="application/json"
      request_method="POST"
      />
 
   <view
-     context=".resources.object.NamedObject"
-     name="__name__"
-     view=".views.object_name_options"
+     context=".resources.collection.BaseCollection"
+     view=".views.collection_post"
      renderer="json"
      accept="application/json"
-     request_method="OPTIONS"
-     />
-
-  <view
-     context=".resources.object.NamedObject"
-     name="__name__"
-     view=".views.object_name"
-     renderer="json"
-     accept="application/json"
+     request_method="POST"
      />
 
   <view
