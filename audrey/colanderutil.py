@@ -201,7 +201,7 @@ class AudreySchemaConverter(SchemaConverter):
         ret['properties'] = dict(
             ObjectId=dict(type='string', required=True, pattern=OBJECTID_REGEX),
         )
-        if node.collection is None:
+        if node.typ.collection is None:
             ret['properties']['collection'] = dict(type='string', required=True, minLength=1)
         return ret
 
