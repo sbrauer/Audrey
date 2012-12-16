@@ -2,4 +2,4 @@ Audrey aims to be a minimal framework for creating [Pyramid](http://www.pylonspr
 
 Audrey includes views that implement a RESTful API.  In an attempt to satisfy the hypermedia constraint (HATEOAS), GET responses use the [HAL+JSON](http://stateless.co/hal_specification.html) mediatype; the only URL a client needs to know is the API root URL.  In a further attempt to be self-describing, links to [JSON Schema](http://json-schema.org/) documents (generated automatically from your types' colander schemas) are provided for POST and PUT requests.
 
-My goal is to keep Audrey otherwise unopinionated.  For example, Audrey intentionally does nothing regarding authentication, authorization, permissions, __acl__, etc.  A developer building on Audrey can make those decisions as appropriate for their app and implement them using standard Pyramid facilities.
+My goal is to keep Audrey otherwise unopinionated.  For example, Audrey intentionally does nothing regarding authentication, authorization, permissions, \_\_acl\_\_, etc.  A developer building on Audrey can make those decisions as appropriate for their app and implement them using standard Pyramid facilities.
