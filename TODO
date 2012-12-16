@@ -14,9 +14,12 @@
     The demo app could include a frontend that uses Knockout.
     What should the demo app be?  A blog maybe?
 
-[ ] Flesh out support for inter-object references and be sure to link
+[x] Flesh out support for inter-object references and be sure to link
     to referenced objects in "_links" section of object GET view
-    (with a new namespaced "referenced" rel)
+    (with a new namespaced "ref" rel)
+
+[ ] Create a utility for keeping references on the other end of
+    many-to-many relationships up to date when a context object is saved.
 
 [x] Add support for files and GridFS
 [ ] Index files in Elastic using its support for attachments?
