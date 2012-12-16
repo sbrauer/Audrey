@@ -2,7 +2,9 @@ import colander
 from audrey import dateutil
 from audrey.htmlutil import html_to_text
 from audrey.resources.file import File
+from audrey.resources.reference import Reference
 from audrey.resources.generic import make_traversable
+import audrey.types
 import datetime
 import pyes
 import hashlib
@@ -26,6 +28,7 @@ class BaseObject(object):
     #   for String nodes:
     #   - include_in_text: boolean, defaults to True; if True, the value will be included in Elastic's full text index.
     #   - is_html: boolean, defaults to False; if True, the value will be stripped of html markup before being indexed in Elastic.
+    # - override _title() to return a suitable title string
     # If the type has some non-schema attributes that you store in Mongo,
     # override get_nonschema_values() and set_nonschema_values().
 
@@ -118,8 +121,25 @@ class BaseObject(object):
     def __str__(self):
         return str(self.get_all_values())
 
+    def _title(self):
+        # Subclasses should override this method to return
+        # a reasonable title for this instance.
+        return self.__name__ or 'Untitled'
+
     def get_all_files(self):
         return _find_files(self.get_all_values()).values()
+
+    def get_all_references(self):
+        return _find_references(self.get_all_values()).values()
+
+    def get_all_referenced_objects(self):
+        ret = []
+        root = find_root(self)
+        for ref in self.get_all_references():
+            obj = root.get_object_for_reference(ref)
+            if obj is not None:
+                ret.append(obj)
+        return ret
 
     def save(self, set_modified=True, index=True, set_etag=True):
         if set_modified:
@@ -160,8 +180,9 @@ class BaseObject(object):
 
     def load_mongo_doc(self, doc):
         clean = _demongify_values(doc)
-        self.set_schema_values(**clean)
         self.set_nonschema_values(**clean)
+        clean = _apply_schema_to_values(self.get_schema(), clean)
+        self.set_schema_values(**clean)
 
     def get_dbref(self, include_database=False):
         coll = self.get_mongo_collection()
@@ -218,6 +239,9 @@ class BaseObject(object):
                 cnode = node.children[0]
                 for val in value:
                     result += self._get_text_values_for_schema_node(cnode, val)
+        elif type(node.typ) == colander.Tuple:
+            for (idx, cnode) in enumerate(node.children):
+                result += self._get_text_values_for_schema_node(cnode, value[idx])
         elif type(node.typ) == colander.String:
             if getattr(node, 'include_in_text', True):
                 if getattr(node, 'is_html', False):
@@ -267,6 +291,10 @@ def _mongify_values(node):
     if type(node) is File:
         return DBRef(GRIDFS_COLLECTION, node._id)
 
+    # Serialize DBRef or bare ObjectId.
+    if type(node) is Reference:
+        return node.to_mongo()
+
     # Pymongo can't handle sets, so coerce to lists.
     if type(node) is set:
         node = list(node)
@@ -315,3 +343,48 @@ def _find_files(node):
             ret.update(_find_files(value))
     return ret
 
+# Crawl over node looking for Reference instances.
+# Return a dict of all Reference instances keyed by ObjectId.
+def _find_references(node):
+    ret = {}
+    if type(node) is Reference:
+        ret[node.id] = node
+    elif type(node) == dict:
+        for value in node.values():
+            ret.update(_find_references(value))
+    elif type(node) in (set, list):
+        for value in node:
+            ret.update(_find_references(value))
+    return ret
+
+def _apply_schema_to_values(node, value):
+    if value is None: return None
+    if type(node.typ) == colander.Mapping:
+        ret = {}
+        for cnode in node.children:
+            name = cnode.name
+            val = value.get(name, None)
+            if val:
+                ret[name] = _apply_schema_to_values(cnode, val)
+        return ret
+    elif type(node.typ) == colander.Sequence:
+        ret = []
+        if node.children:
+            cnode = node.children[0]
+            for val in value:
+                ret.append(_apply_schema_to_values(cnode, val))
+        return ret
+    elif type(node.typ) == colander.Tuple:
+        ret = []
+        for (idx, cnode) in enumerate(node.children):
+            ret.append(_apply_schema_to_values(cnode, value[idx]))
+        return tuple(ret)
+    # Convert DBRefs and base ObjectIds to Audrey's Reference type.
+    elif type(node.typ) == audrey.types.Reference:
+        if node.typ.collection:
+            # Assume value is an ObjectId
+            return Reference(node.typ.collection, value, serialize_id_only=True)
+        else:
+            # Assume value is a DBRef
+            return Reference(value.collection, value.id)
+    return value

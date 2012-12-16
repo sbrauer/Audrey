@@ -39,6 +39,7 @@ def represent_object(context, request):
     #if isinstance(request.context, resources.object.NamedObject):
     #    ret['__name__'] = context.__name__
     ret['_object_type'] = context._object_type
+    ret['_title'] = context._title()
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         collection = dict(href=request.resource_url(context.__parent__)),
@@ -46,6 +47,8 @@ def represent_object(context, request):
     )
     # FIXME: namespace and document the "file" rel
     ret['_links']['file'] = [dict(name=str(f._id), href=request.resource_url(context, '@@download', str(f._id))) for f in context.get_all_files()]
+    # FIXME: namespace and document the "ref" rel
+    ret['_links']['ref'] = [dict(name=str(obj._id), href=request.resource_url(obj), title=obj._title()) for obj in context.get_all_referenced_objects()]
     return ret
 
 def object_get(context, request):
@@ -180,7 +183,9 @@ class LinkingItemHandler(ItemHandler):
     def get_property(self):
         return "_links"
     def handle_item(self, context, request):
-        return dict(name=context.__name__, href=request.resource_url(context))
+        return dict(name=context.__name__,
+                    href=request.resource_url(context),
+                    title=context._title())
 
 class EmbeddingItemHandler(ItemHandler):
     def get_property(self):
@@ -197,7 +202,10 @@ class LinkingSearchItemHandler(LinkingItemHandler):
         else:
             object = context
             highlight = None
-        ret = dict(name="%s:%s" % (object.__parent__.__name__, object.__name__), href=request.resource_url(object))
+        ret = dict(
+                name="%s:%s" % (object.__parent__.__name__, object.__name__),
+                href=request.resource_url(object),
+                title=object._title())
         if highlight: ret['highlight'] = highlight
         return ret
 

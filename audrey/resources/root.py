@@ -78,6 +78,9 @@ class Root(object):
         coll = self.get_child(collection_name)
         return coll.get_child_by_id(id)
 
+    def get_object_for_reference(self, reference):
+        return self.get_object_for_collection_and_id(reference.collection, reference.id)
+
     def serve_gridfs_file_for_id(self, id):
         return File(id).serve(self.request)
 
@@ -100,6 +103,10 @@ class Root(object):
         # FIXME: instead of trusting client's content-type, use python-magic to determine type server-side?
         mimetype = fieldstorage.headers.get('content-type')
         return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents)
+
+    # FIXME: add a method to purge orphaned files (files where parents=[])
+    # that were created more than some cutoff ago (cutoff should be
+    # an argument with a sane default... like 24 hrs).
 
     def search_raw(self, query=None, doc_types=None, **query_parms):
         """ A thin wrapper around pyes.ES.search_raw().
