@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=utf-8>
+    <title>Audrey Link Relations - upload</title>
+    <!--[if IE]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <link rel="stylesheet" type="text/css" href="/hal-browser/vendor/css/bootstrap.css" />
+  </head>
+  <body>
+  <div class="container-fluid">
+    <nav>
+      <a href="..">Up to index</a>
+    </nav>
+    <header>
+      <h1>Audrey Link Relations</h1>
+      <h2>"upload" rel</h2>
+    </header>
+    <p>
+    The "upload" relation is used to indicate a link from the root resource to an endpoint for POSTing a request to upload one or more files.
+    </p>
+    <p>
+    Requests to the "upload" endpoint should use the POST method and the multipart/form-data content type.  The request should contain any number of file uploads using the parameter names of your choice.  The server will create a new file in the GridFS for each uploaded file.
+    </p>
+    <p>
+    The server will return a JSON document with the parameter names from the request as the keys.  Each value will be a JSON object with the parameter "FileId" whose value is a string representation of the file's ObjectId.
+    </p>
+    <p>
+    Example: You POST a request with two files identified by the parameters "foo" and "bar".  The response would look similar to:
+    </p>
+    <pre>{
+    "foo": {
+        "FileId": "50bc0ea3bf90af377fe01109"
+    },
+    "bar": {
+        "FileId": "50afc470bf90af19c3ef3739"
+    }
+}</pre>
+    <p>
+    Note that these values are suitable for use as values for file attributes in POST/PUT requests to create/edit Audrey Objects.
+    </p>
+  </div>	
+  </body>	
+</html>

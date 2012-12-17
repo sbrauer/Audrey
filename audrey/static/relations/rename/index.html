@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=utf-8>
+    <title>Audrey Link Relations - rename</title>
+    <!--[if IE]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <link rel="stylesheet" type="text/css" href="/hal-browser/vendor/css/bootstrap.css" />
+  </head>
+  <body>
+  <div class="container-fluid">
+    <nav>
+      <a href="..">Up to index or relations</a>
+    </nav>
+    <header>
+      <h1>Audrey Link Relations</h1>
+      <h2>"rename" rel</h2>
+    </header>
+    <p>
+    The "rename" relation is used to indicate a link from a collection to an endpoint for POSTing a request to rename a child resource.  Such a link will only exist for collections that allow explicit control over child naming.
+    </p>
+    <p>
+    Requests to a collection's "rename" endpoint should use the POST method and the application/json content type.  The body of the request should be a JSON object with the keys: "from_name" and "to_name" whose values are strings indicating the old and new names. For example:
+    </p>
+    <pre>{
+    "from_name": "foo",
+    "to_name": "bar"
+}</pre>
+    <p>
+    Responses described below...
+    </p>
+    <table class="table">
+    <tr>
+      <th>Status</th>
+      <th>Notes</th>
+    </tr>
+    <tr>
+      <td>204 No Content</td>
+      <td>
+      The rename was successful. The response includes Location and Content-Location headers with the url of the renamed child resource.
+      </td>
+    </tr>
+    <tr>
+      <td>400 Bad Request</td>
+      <td>
+      The rename was not allowed (non-unique or invalid new name).  The body of the response is a JSON object with an "error" property explaining the reason.
+      </td>
+    </tr>
+    <tr>
+      <td>404 Not Found</td>
+      <td>
+      No child object exists with the value of "from_name".
+      </td>
+    </tr>
+    </table>
+  </div>	
+  </body>	
+</html>

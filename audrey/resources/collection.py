@@ -308,4 +308,4 @@ class NamingCollection(BaseCollection):
             child.save()
             return 1
         else:
-            return 0
+            raise KeyError, "No such child %r" % name

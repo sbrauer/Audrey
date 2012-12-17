@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=utf-8>
+    <title>Audrey Link Relations - file</title>
+    <!--[if IE]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <link rel="stylesheet" type="text/css" href="/hal-browser/vendor/css/bootstrap.css" />
+  </head>
+  <body>
+  <div class="container-fluid">
+    <nav>
+      <a href="..">Up to index</a>
+    </nav>
+    <header>
+      <h1>Audrey Link Relations</h1>
+      <h2>"file" rel</h2>
+    </header>
+    <p>
+    The "file" relation is used to indicate a link to download a file (stored in the MongoDB GridFS).
+    </p>
+    <p>
+    Every file link object has a "name" property containing a string representation of the file's ObjectId.  As such, the "name" can be used to uniquely identify a specific file link.  The ObjectId strings can be cross-referenced with "FileId" values found in an Object's state properties to determine the corresponding file link for a given property.
+    </p>
+    <p>
+    Each file link object has a "type" property containing a string representing the MIME type of the file.
+    </p>
+  </div>	
+  </body>	
+</html>

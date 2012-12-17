@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=utf-8>
+    <title>Audrey Link Relations - schema</title>
+    <!--[if IE]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <link rel="stylesheet" type="text/css" href="/hal-browser/vendor/css/bootstrap.css" />
+  </head>
+  <body>
+  <div class="container-fluid">
+    <nav>
+      <a href="..">Up to index</a>
+    </nav>
+    <header>
+      <h1>Audrey Link Relations</h1>
+      <h2>"schema" rel</h2>
+    </header>
+    <p>
+    The "schema" relation is used to indicate a link to a <a href="http://json-schema.org">JSON Schema</a> document.  Collections include such links to describe the schema for each type of child resource that can be added to the collection.
+    </p>
+    <p>
+    Every schema link object has a "name" property containing a string representating the name of an Object type.
+    </p>
+    <p>
+    While on the topic of creating new resources, note that collections have a state property "_factory" whose value is an object with the following properties:
+    </p>
+    <table class="table">
+    <tr>
+      <th>Property</th>
+      <th>Notes</th>
+    </tr>
+    <tr>
+      <td>schemas</td>
+      <td>A list of the object types that can be created in this collection.  The list contains strings that can be correlated with the names of the "schema" links.</td>
+    </tr>
+    <tr>
+      <td>method</td>
+      <td>The HTTP method to be used to create new child objects.  For naming collections this will be PUT.  For non-naming collections it will be POST.</td>
+    </tr>
+    </table>
+  </div>	
+  </body>	
+</html>

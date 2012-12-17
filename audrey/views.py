@@ -1,6 +1,7 @@
 import colander
 import webob
 from pyramid.httpexceptions import HTTPNotFound
+from pyramid.traversal import find_root
 import resources
 from exceptions import Veto
 import sortutil
@@ -11,6 +12,64 @@ from audrey.colanderutil import AudreySchemaConverter
 DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
 SCHEMA_CONVERTER = AudreySchemaConverter()
+
+def get_curie(context, request):
+    # Return a "curie" object to namespace our HAL+JSON links.
+    root = find_root(context)
+    return dict(
+        name='audrey',
+        href="%srelations/{rel}" % request.resource_url(root),
+        templated=True,
+    )
+
+# FIXME: replace with an interface?
+class ItemHandler(object):
+    def get_property(self):
+        pass # Should return "_links" or "_embedded"
+    def handle_item(self, context, request):
+        pass # Should return a dictionary representing one item.
+
+class EmbeddingItemHandler(ItemHandler):
+    def get_property(self):
+        return "_embedded"
+    def handle_item(self, context, request):
+        return represent_object(context, request)
+
+class LinkingItemHandler(ItemHandler):
+    def get_property(self):
+        return "_links"
+    def handle_item(self, context, request):
+        return dict(name=context.__name__,
+                    href=request.resource_url(context),
+                    title=context._title())
+
+class LinkingSearchItemHandler(LinkingItemHandler):
+    def handle_item(self, context, request):
+        # Context may be either an object or a dict with object and highlight.
+        if type(context) == dict:
+            object = context['object']
+            highlight = context['highlight']
+        else:
+            object = context
+            highlight = None
+        ret = dict(
+                name="%s:%s" % (object.__parent__.__name__, object.__name__),
+                href=request.resource_url(object),
+                title=object._title())
+        if highlight: ret['highlight'] = highlight
+        return ret
+
+class LinkingReferenceHandler(ItemHandler):
+    def get_property(self):
+        return "_links"
+    def handle_item(self, context, request):
+        return dict(name=str(context._id),
+                    href=request.resource_url(context),
+                    title=context._title())
+
+DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
+DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
+DEFAULT_REFERENCE_HANDLER = LinkingReferenceHandler()
 
 def object_options(context, request):
     request.response.allow = "HEAD,GET,OPTIONS,PUT,DELETE"
@@ -30,33 +89,33 @@ def collection_options(context, request):
     request.response.status_int = 204 # No Content
     return {}
 
-def represent_object(context, request):
+def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
     ret = context.get_all_values()
-    #ret = context.get_schema_values()
-    #ret['_id'] = str(context._id)
-    #ret['_created'] = context._created
-    #ret['_modified'] = context._modified
-    #if isinstance(request.context, resources.object.NamedObject):
-    #    ret['__name__'] = context.__name__
     ret['_object_type'] = context._object_type
     ret['_title'] = context._title()
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
+        curie = get_curie(context, request),
         collection = dict(href=request.resource_url(context.__parent__)),
         describedby = dict(href=request.resource_url(context.__parent__, '@@schema', context._object_type)),
     )
-    # FIXME: namespace and document the "file" rel
-    ret['_links']['file'] = [dict(name=str(f._id), href=request.resource_url(context, '@@download', str(f._id))) for f in context.get_all_files()]
-    # FIXME: namespace and document the "ref" rel
-    ret['_links']['ref'] = [dict(name=str(obj._id), href=request.resource_url(obj), title=obj._title()) for obj in context.get_all_referenced_objects()]
+    ret['_links']['audrey:file'] = [
+        dict(
+            name=str(f._id),
+            href=request.resource_url(context, '@@download', str(f._id)),
+            type=f.get_gridfs_file(request).content_type,
+        ) for f in context.get_all_files()]
+    if reference_handler.get_property() == '_embedded':
+        ret['_embedded'] = {}
+    ret[reference_handler.get_property()]['audrey:reference'] = [reference_handler.handle_item(obj, request) for obj in context.get_all_referenced_objects()]
     return ret
 
-def object_get(context, request):
+def object_get(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
     request.response.content_type = 'application/hal+json'
     request.response.etag = context._etag
     request.response.last_modified = context._modified
     request.response.conditional_response = True
-    return represent_object(context, request)
+    return represent_object(context, request, reference_handler=reference_handler)
 
 def test_preconditions(context, request):
     # Returns None on success, or a dictionary with an "error" key on failure.
@@ -127,6 +186,9 @@ def collection_rename(context, request):
     except Veto, e:
         request.response.status_int = 400 # Bad Request
         return dict(error=str(e))
+    except KeyError, e:
+        request.response.status_int = 404 # Not Found
+        return dict(error=str(e))
     obj = context[to_name]
     request.response.status_int = 204 # No Content
     request.response.content_location = request.resource_url(obj)
@@ -137,22 +199,19 @@ def root_get(context, request):
     ret = {}
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
+        curie = get_curie(context, request),
         item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_children()],
         search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&sort}{&collection*}", templated=True),
-        # FIXME: namespace this rel and document
-        upload = dict(href=request.resource_url(context, '@@upload')),
     )
+    ret['_links']['audrey:upload'] = dict(href=request.resource_url(context, '@@upload'))
     request.response.content_type = 'application/hal+json'
     return ret
 
-# FIXME: should i just hardcode a variable name (say "file") instead
-# of trying to be flexible and accept all file uploads as below?
 def root_upload(context, request):
     ret = {}
     for (name, val) in request.POST.items():
         if hasattr(val, 'filename'):
-            _id = context.create_gridfs_file(val)
-            ret[name] = str(_id)
+            ret[name] = context.create_gridfs_file_from_fieldstorage(val)
     return ret
 
 def root_download(context, request):
@@ -172,45 +231,6 @@ def file_serve(context, request):
     # Serve an audrey.resources.file.File
     return context.serve(request)
 
-# FIXME: replace with an interface?
-class ItemHandler(object):
-    def get_property(self):
-        pass # Should return "_links" or "_embedded"
-    def handle_item(self, context, request):
-        pass # Should return a dictionary representing one item.
-
-class LinkingItemHandler(ItemHandler):
-    def get_property(self):
-        return "_links"
-    def handle_item(self, context, request):
-        return dict(name=context.__name__,
-                    href=request.resource_url(context),
-                    title=context._title())
-
-class EmbeddingItemHandler(ItemHandler):
-    def get_property(self):
-        return "_embedded"
-    def handle_item(self, context, request):
-        return represent_object(context, request)
-
-class LinkingSearchItemHandler(LinkingItemHandler):
-    def handle_item(self, context, request):
-        # Context may be either an object or a dict with object and highlight.
-        if type(context) == dict:
-            object = context['object']
-            highlight = context['highlight']
-        else:
-            object = context
-            highlight = None
-        ret = dict(
-                name="%s:%s" % (object.__parent__.__name__, object.__name__),
-                href=request.resource_url(object),
-                title=object._title())
-        if highlight: ret['highlight'] = highlight
-        return ret
-
-DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
-DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 
 def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
     (batch, per_batch, skip) = get_batch_parms(request)
@@ -276,13 +296,12 @@ def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_
     query_dict.update(request.GET)
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context, query=query_dict)),
+        curie = get_curie(context, request),
         collection = dict(href=request.resource_url(context.__parent__)),
-        # FIXME: namespace and document "schema" rel
-        schema = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_types()],
     )
+    ret['_links']['audrey:schema'] = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_types()]
     if isinstance(context, resources.collection.NamingCollection):
-        # FIXME: namespace and document "rename" rel
-        ret['_links']['rename'] = dict(href=request.resource_url(context, '@@rename'))
+        ret['_links']['audrey:rename'] = dict(href=request.resource_url(context, '@@rename'))
     if batch > 1:
         query_dict['batch'] = batch-1
         ret['_links']['prev'] = dict(href=request.resource_url(context, query=query_dict))

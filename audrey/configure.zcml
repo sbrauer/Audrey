@@ -3,8 +3,14 @@
   <include package="pyramid_zcml" />
 
   <static
-     name="static"
-     path="static"
+     name="hal-browser"
+     path="static/hal-browser"
+     cache_max_age="3600"
+     />
+
+  <static
+     name="relations"
+     path="static/relations"
      cache_max_age="3600"
      />
 

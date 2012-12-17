@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=utf-8>
+    <title>Audrey Link Relations - reference</title>
+    <!--[if IE]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <link rel="stylesheet" type="text/css" href="/hal-browser/vendor/css/bootstrap.css" />
+  </head>
+  <body>
+  <div class="container-fluid">
+    <nav>
+      <a href="..">Up to index</a>
+    </nav>
+    <header>
+      <h1>Audrey Link Relations</h1>
+      <h2>"reference" rel</h2>
+    </header>
+    <p>
+    The "reference" relation is used to indicate a link from one Audrey Object to another.  This relation may also be used to for _embedded objects.
+    </p>
+    <h3>Reference Links</h3>
+    <p>
+    Every reference link object has a "name" property containing a string representation of the referenced object's ObjectId.  As such, the "name" can be used to uniquely identify a specific reference link.  The ObjectId strings can be cross-referenced with "ObjectId" values found in an Object's state properties to determine the corresponding link for a given property.
+    </p>
+    <p>
+    Each reference link object has a "title" property containing a string representing the title of the referenced object.
+    </p>
+    <h3>Embedded References</h3>
+    <p>
+    When referenced objects are embedded, they will have an "_id" in their state properties whose value is an object with an "ObjectId" property containing a string representation of the referenced object's ObjectId.
+    These ObjectId strings can be cross-referenced with "ObjectId" values in the embedding Object's state properties to determine the embedded resource that corresponds to a given property.
+    </p>
+  </div>	
+  </body>	
+</html>
