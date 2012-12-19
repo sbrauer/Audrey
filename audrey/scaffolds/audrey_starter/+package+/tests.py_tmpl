@@ -1,0 +1,111 @@
+import unittest
+from pyramid import testing
+
+class ViewTests(unittest.TestCase):
+    def setUp(self):
+        self.config = testing.setUp()
+
+    def tearDown(self):
+        testing.tearDown()
+
+    def test_my_view(self):
+        from .views import my_view
+        request = testing.DummyRequest()
+        info = my_view(request)
+        self.assertEqual(info['project'], '{{project}}')
+
+def _getPersonClass():
+    from .resources import Person
+    return Person
+
+def _getPostClass():
+    from .resources import Post
+    return Post
+
+def _getRootClass():
+    from .resources import Root
+    return Root
+
+def _makeOneRoot(request):
+    return _getRootClass()(request)
+
+def _makeOnePerson(request, firstname='Some', lastname='Body'):
+    return _getPersonClass()(request, firstname=firstname, lastname=lastname, photo=None)
+
+def _makeOnePost(request, title='Title', body='Body', dateline=None):
+    if dateline is None:
+        import datetime
+        dateline = datetime.datetime.utcnow()
+    return _getPostClass()(request, title=title, body=body, dateline=dateline, author=None)
+
+class ObjectTests(unittest.TestCase):
+
+    def test_person_schema(self):
+        schema = _getPersonClass().get_class_schema()
+        self.assertEqual([c.name for c in schema.children], ['firstname', 'lastname', 'photo'])
+
+    def test_person_title(self):
+        request = testing.DummyRequest()
+        p = _getPersonClass()(request)
+        self.assertEqual(p._title(), 'Untitled')
+        p.firstname = 'Some'
+        p.lastname = 'Body'
+        self.assertEqual(p._title(), 'Some Body')
+
+    def test_post_schema(self):
+        schema = _getPostClass().get_class_schema()
+        self.assertEqual([c.name for c in schema.children], ['title', 'dateline', 'body', 'author'])
+
+    def test_post_title(self):
+        request = testing.DummyRequest()
+        p = _getPostClass()(request)
+        self.assertEqual(p._title(), 'Untitled')
+        p.title = 'Hello World'
+        self.assertEqual(p._title(), 'Hello World')
+
+# The following TestCase can be used for tests needing access
+# to MongoDB and ElasticSearch servers.
+class FunctionalTests(unittest.TestCase):
+
+    def setUp(self):
+        settings = dict(
+            mongo_uri = "mongodb://127.0.0.1",
+            mongo_name = "{{package}}_unittests",
+            elastic_uri = "thrift://127.0.0.1:9500",
+        )
+        import audrey
+        from .resources import root_factory
+        root_cls = _getRootClass()
+        self.app = audrey.audrey_main(root_factory, root_cls, {}, **settings)
+        self.mongo_conn = self.app.registry.settings['mongo_conn']
+        self.elastic_conn = self.app.registry.settings['elastic_conn']
+        self.settings = self.app.registry.settings
+        self.request = testing.DummyRequest()
+        self.request.registry = self.app.registry
+
+    def tearDown(self):
+        #self.mongo_conn.drop_database(self.settings['mongo_name'])
+        # Dropping all the non-system Mongo collections instead of dropping
+        # the database allows the tests to run around twice as fast.
+        db = self.mongo_conn[self.settings['mongo_name']]
+        names = db.collection_names()
+        for name in names:
+            if name == 'system.indexes': continue
+            db.drop_collection(name)
+        self.mongo_conn.disconnect()
+        self.elastic_conn.close_index(self.settings['elastic_name'])
+        self.elastic_conn.delete_index(self.settings['elastic_name'])
+
+    def test_example(self):
+        root = _makeOneRoot(self.request)
+        people = root['people']
+        person = _makeOnePerson(self.request)
+        people.add_child(person)
+        children = people.get_children()
+        self.assertEqual(len(children), 1)
+        self.assertEqual(children[0]._id, person._id)
+        post = _makeOnePost(self.request)
+        from audrey.resources.reference import Reference
+        post.author = Reference('people', person._id, True)
+        self.assertEqual(root.get_object_for_reference(post.author)._title(), 'Some Body')
+
