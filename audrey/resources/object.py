@@ -1,15 +1,16 @@
+import datetime
+import hashlib
+from pprint import pformat
 import colander
+from bson.dbref import DBRef
+from pyramid.traversal import find_root
+import pyes
 from audrey import dateutil
 from audrey.htmlutil import html_to_text
 from audrey.resources.file import File
 from audrey.resources.reference import Reference
 from audrey.resources.generic import make_traversable
 import audrey.types
-import datetime
-import pyes
-import hashlib
-from bson.dbref import DBRef
-from pyramid.traversal import find_root
 
 GRIDFS_COLLECTION = "fs"
 
@@ -66,8 +67,7 @@ class BaseObject(object):
 
     def get_nonschema_values(self):
         values = {}
-        _id = getattr(self, '_id', None)
-        if _id: values['_id'] =  _id
+        values['_id'] =  getattr(self, '_id', None)
         values['_created'] = getattr(self, '_created', None)
         values['_modified'] = getattr(self, '_modified', None)
         values['_etag'] = getattr(self, '_etag', None)
@@ -89,8 +89,7 @@ class BaseObject(object):
         """
         values = {}
         for name in self.get_schema_names():
-            if hasattr(self, name):
-                values[name] = getattr(self, name)
+            values[name] = getattr(self, name, None)
         return values
 
     def get_all_values(self):
@@ -116,10 +115,13 @@ class BaseObject(object):
         return self.__parent__.get_elastic_doctype()
 
     def get_mongo_save_doc(self):
-        return _mongify_values(self.get_all_values())
+        doc = _mongify_values(self.get_all_values())
+        if doc['_id'] is None:
+            del doc['_id']
+        return doc
 
     def __str__(self):
-        return str(self.get_all_values())
+        return pformat(self.get_all_values())
 
     def _title(self):
         # Subclasses should override this method to return
@@ -260,6 +262,10 @@ class BaseObject(object):
         raise KeyError
 
 class NamedObject(BaseObject):
+
+    def __init__(self, request, **kwargs):
+        self.__name__ = None
+        BaseObject.__init__(self, request, **kwargs)
 
     def get_nonschema_values(self):
         values = BaseObject.get_nonschema_values(self)

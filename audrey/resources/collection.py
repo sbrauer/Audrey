@@ -303,9 +303,8 @@ class NamingCollection(BaseCollection):
             error = self.veto_child_name(newname)
             if error: raise Veto(error)
         child = self.get_child_by_name(name)
-        if child:
-            child.__name__ = newname
-            child.save()
-            return 1
-        else:
+        if child is None:
             raise KeyError, "No such child %r" % name
+        child.__name__ = newname
+        child.save()
+        return 1

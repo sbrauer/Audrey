@@ -78,6 +78,32 @@ def _getExampleNamingCollectionClass():
     classes[TYPE_NAME] = ExampleNamingCollection
     return ExampleNamingCollection
 
+def _getExampleObjectClassWithFiles():
+    TYPE_NAME = 'example_object_with_files'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
+    from audrey import resources
+    import audrey.types
+    import colander
+    class ExampleObjectWithFiles(resources.object.BaseObject):
+        _object_type = TYPE_NAME
+        @classmethod
+        def get_class_schema(cls, request=None):
+            schema = colander.SchemaNode(colander.Mapping())
+            schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(audrey.types.File()), name='files', missing=[], default=[]))
+            return schema
+    classes[TYPE_NAME] = ExampleObjectWithFiles
+    return ExampleObjectWithFiles
+
+def _getExampleBaseCollectionClass():
+    TYPE_NAME = 'example_base_collection'
+    if TYPE_NAME in classes: return classes[TYPE_NAME]
+    from audrey import resources
+    class ExampleBaseCollection(resources.collection.BaseCollection):
+        _collection_name = TYPE_NAME
+        _object_classes = (_getExampleBaseObjectClass(), _getExampleObjectClassWithFiles(), )
+    classes[TYPE_NAME] = ExampleBaseCollection
+    return ExampleBaseCollection
+
 def _getExampleRootClass():
     TYPE_NAME = 'example_root'
     if TYPE_NAME in classes: return classes[TYPE_NAME]
@@ -98,6 +124,17 @@ def _makeOneBaseCollection(request):
 
 def _makeOneNamedObject(request, name, title='A Title'):
     return _getExampleNamedObjectClass()(request, __name__=name, title=title)
+
+def _makeSampleFiles():
+    ret = []
+    # FIXME???
+    return ret
+
+def _makeOneObjectWithFiles(request, create_files=True):
+    obj = _getExampleNamedObjectClass()(request, files=[])
+    if create_files:
+        obj.files = _makeSampleFiles()
+    return obj
 
 #def _makeOneNamingCollection(request):
 #    return _getExampleNamingCollectionClass()(request)
@@ -220,11 +257,11 @@ class ObjectTests(unittest.TestCase):
         request = testing.DummyRequest()
         instance = _makeOneBaseObject(request)
         vals = instance.get_nonschema_values()
-        self.assertTrue('_id' not in vals)
+        self.assertEqual(vals['_id'], None)
         self.assertTrue('_created' in vals)
         instance._id = 'test'
         vals = instance.get_nonschema_values()
-        self.assertTrue('_id' in vals)
+        self.assertEqual(vals['_id'], 'test')
 
     def test_get_schema_values(self):
         request = testing.DummyRequest()
@@ -255,6 +292,12 @@ class ObjectTests(unittest.TestCase):
         instance = _makeOneBaseObject(request)
         doc = instance.get_elastic_index_doc()
         self.assertEqual(doc, {'text': 'A Title\nSome body.\nfoo\nbar', '_modified': None, '_created': None})
+
+    def test_str(self):
+        request = testing.DummyRequest()
+        instance = _makeOneBaseObject(request)
+        s = str(instance)
+        self.assertEqual(s, "{'_created': None,\n '_etag': None,\n '_id': None,\n '_modified': None,\n 'body': '<p>Some body.</p>',\n 'dateline': %s,\n 'tags': set(['bar', 'foo']),\n 'title': 'A Title'}" % repr(today))
         
 # The following tests need access to Mongo and Elastic servers.
 class FunctionalTests(unittest.TestCase):
@@ -516,9 +559,9 @@ class FunctionalTests(unittest.TestCase):
         coll = root['example_naming_collection']
         name1 = 'name1'
         name2 = 'name2'
-        self.assertEqual(coll.rename_child(name1, name2), 0)
-        from audrey import sortutil
         self.assertFalse(coll.has_child_with_name(name1))
+        with self.assertRaises(KeyError):
+            coll.rename_child(name1, name2)
         instance = _makeOneNamedObject(self.request, name1)
         coll.add_child(instance)
         self.assertTrue(coll.has_child_with_name(name1))
@@ -527,3 +570,11 @@ class FunctionalTests(unittest.TestCase):
         self.assertFalse(coll.has_child_with_name(name1))
         self.assertTrue(coll.has_child_with_name(name2))
 
+    def test_file_bookkeeping(self):
+        # FIXME: create an object with 2 files and save it
+        # Verify that the two files in GridFS have the object's dbref as a parent.
+        # Upload another file and associate with the object... and unassociate one of the original 2 files; save().
+        # Verify that the parents are correct for all 3 files.
+        # Delete the object.
+        # Verify that the parents are correct (empty) for all 3 files.
+        pass
