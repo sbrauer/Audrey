@@ -3,7 +3,7 @@ import os
 from setuptools import setup, find_packages
 
 here = os.path.abspath(os.path.dirname(__file__))
-README = open(os.path.join(here, 'README.txt')).read()
+README = open(os.path.join(here, 'README.md')).read()
 CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 requires = [
@@ -19,7 +19,7 @@ requires = [
     ]
 
 setup(name='Audrey',
-      version='0.0',
+      version='0.0.1',
       description='Audrey',
       long_description=README + '\n\n' +  CHANGES,
       classifiers=[
@@ -27,6 +27,8 @@ setup(name='Audrey',
         "Framework :: Pyramid",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+        "License :: OSI Approved :: BSD License",
+        "Development Status :: 2 - Pre-Alpha",
         ],
       author='Sam Brauer',
       author_email='sam.brauer@gmail.com',
@@ -41,6 +43,8 @@ setup(name='Audrey',
       entry_points = """\
       [paste.app_factory]
       main = audrey:main
+      [pyramid.scaffold]
+      audrey=audrey.scaffolds:AudreyStarterTemplate
       """,
       )
 
