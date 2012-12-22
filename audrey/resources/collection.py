@@ -3,10 +3,10 @@ from audrey.exceptions import Veto
 from collections import OrderedDict
 import string
 
-class BaseCollection(object):
+class Collection(object):
 
     # Developers extending Audrey should create their own subclass(es) of 
-    # BaseCollection that:
+    # Collection that:
     # - override _collection_name; this string is used for traversal
     #   to a Collection from Root, as the name of the MongoDB collection,
     #   and as the name of the ElasticSearch doctype.
@@ -28,7 +28,7 @@ class BaseCollection(object):
 
     _ID_FIELD = '_id'
 
-    # In BaseCollection, users can't explicitly assign names to objects.
+    # In Collection, users can't explicitly assign names to objects.
     # The ObjectIds automatically assigned by MongoDB are used as the __name__.
     _NAME_FIELD = _ID_FIELD
 
@@ -206,7 +206,7 @@ class BaseCollection(object):
         child.__parent__ = self
         child.save()
         if self._NAME_FIELD == self._ID_FIELD:
-            # We assume BaseObject.save() set the _id attribute.
+            # We assume Object.save() set the _id attribute.
             child.__name__ = str(child._id)
 
     def delete_child(self, child_obj):
@@ -247,7 +247,7 @@ class BaseCollection(object):
                 count += 1
         return count
 
-class NamingCollection(BaseCollection):
+class NamingCollection(Collection):
 
     _collection_name = 'naming_collection'
 
@@ -255,13 +255,13 @@ class NamingCollection(BaseCollection):
 
     @classmethod
     def get_mongo_indexes(cls):
-        indexes = BaseCollection.get_mongo_indexes()
+        indexes = Collection.get_mongo_indexes()
         indexes.append(([(cls._NAME_FIELD, 1)], dict(unique=True)))
         return indexes
 
     @classmethod
     def get_elastic_mapping(cls):
-        mapping = BaseCollection.get_elastic_mapping()
+        mapping = Collection.get_elastic_mapping()
         mapping[cls._NAME_FIELD] = dict(type='string', include_in_all=False, index='not_analyzed')
         return mapping
 
@@ -292,7 +292,7 @@ class NamingCollection(BaseCollection):
         return None
 
     def veto_add_child(self, child):
-        err = BaseCollection.veto_add_child(self, child)
+        err = Collection.veto_add_child(self, child)
         if err: return err
         return self.veto_child_name(child.__name__)
 

@@ -14,14 +14,14 @@ import audrey.types
 
 GRIDFS_COLLECTION = "fs"
 
-class BaseObject(object):
+class Object(object):
     """ Base class for objects that can be stored in MongoDB.
     Includes support for Deform; simply override the get_class_schema()
     class method to return a Colander schema for your class.
     """
 
     # Developers extending Audrey should create their own subclass(es) of 
-    # BaseObject that:
+    # Object that:
     # - override _object_type; this string should uniquely identify the Object
     #   type within the context of a given Audrey application
     # - override get_class_schema() to return a colander schema for the type.
@@ -261,23 +261,23 @@ class BaseObject(object):
                 return make_traversable(val, name, self)
         raise KeyError
 
-class NamedObject(BaseObject):
+class NamedObject(Object):
 
     def __init__(self, request, **kwargs):
         self.__name__ = None
-        BaseObject.__init__(self, request, **kwargs)
+        Object.__init__(self, request, **kwargs)
 
     def get_nonschema_values(self):
-        values = BaseObject.get_nonschema_values(self)
+        values = Object.get_nonschema_values(self)
         values['__name__'] = self.__name__
         return values
 
     def set_nonschema_values(self, **kwargs):
-        BaseObject.set_nonschema_values(self, **kwargs)
+        Object.set_nonschema_values(self, **kwargs)
         self.__name__ = kwargs.get('__name__')
 
     def get_elastic_index_doc(self):
-        result = BaseObject.get_elastic_index_doc(self)
+        result = Object.get_elastic_index_doc(self)
         result['__name__'] = self.__name__
         return result
 

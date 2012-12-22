@@ -8,7 +8,7 @@ import colander
 # Whether or not to use names depends on your app and how meaningful
 # (or not) you want your URLs to be.
 
-class Person(audrey.resources.object.BaseObject):
+class Person(audrey.resources.object.Object):
     _object_type = "person"
 
     @classmethod
@@ -31,7 +31,7 @@ class Person(audrey.resources.object.BaseObject):
         else:
             return "Untitled"
 
-class People(audrey.resources.collection.BaseCollection):
+class People(audrey.resources.collection.Collection):
     _collection_name = 'people'
     _object_classes = (Person,)
 

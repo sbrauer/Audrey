@@ -52,7 +52,7 @@ Maybe comment this view out...?
      />
 
    <view
-     context=".resources.object.BaseObject"
+     context=".resources.object.Object"
      name="download"
      view=".views.object_download"
      request_method="GET"
@@ -65,7 +65,7 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.collection.BaseCollection"
+     context=".resources.collection.Collection"
      name="schema"
      view=".views.collection_schema"
      renderer="json"
@@ -74,7 +74,7 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.collection.BaseCollection"
+     context=".resources.collection.Collection"
      view=".views.collection_get"
      renderer="json"
      accept="application/hal+json"
@@ -82,7 +82,7 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.collection.BaseCollection"
+     context=".resources.collection.Collection"
      view=".views.collection_options"
      renderer="json"
      request_method="OPTIONS"
@@ -98,7 +98,7 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.collection.BaseCollection"
+     context=".resources.collection.Collection"
      view=".views.collection_post"
      renderer="json"
      accept="application/json"
@@ -106,7 +106,7 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.object.BaseObject"
+     context=".resources.object.Object"
      view=".views.object_get"
      renderer="json"
      accept="application/hal+json"
@@ -114,14 +114,14 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.object.BaseObject"
+     context=".resources.object.Object"
      view=".views.object_options"
      renderer="json"
      request_method="OPTIONS"
      />
 
   <view
-     context=".resources.object.BaseObject"
+     context=".resources.object.Object"
      view=".views.object_put"
      renderer="json"
      accept="application/json"
@@ -142,7 +142,7 @@ Maybe comment this view out...?
      />
 
   <view
-     context=".resources.object.BaseObject"
+     context=".resources.object.Object"
      view=".views.object_delete"
      renderer="json"
      accept="application/json"

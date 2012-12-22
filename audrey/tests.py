@@ -21,16 +21,16 @@ today_with_time = datetime.datetime.combine(today, datetime.time())
 
 classes = {}
 
-def _getBaseObjectClass():
+def _getObjectClass():
     from audrey import resources
-    return resources.object.BaseObject
+    return resources.object.Object
 
-def _getExampleBaseObjectClass():
-    TYPE_NAME = 'example_base_object'
+def _getExampleObjectClass():
+    TYPE_NAME = 'example_object'
     if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
     import colander
-    class ExampleBaseObject(resources.object.BaseObject):
+    class ExampleObject(resources.object.Object):
         _object_type = TYPE_NAME
         @classmethod
         def get_class_schema(cls, request=None):
@@ -40,18 +40,18 @@ def _getExampleBaseObjectClass():
             schema.add(colander.SchemaNode(colander.Date(), name='dateline'))
             schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(colander.String()), name='tags', missing=[], default=[]))
             return schema
-    classes[TYPE_NAME] = ExampleBaseObject
-    return ExampleBaseObject
+    classes[TYPE_NAME] = ExampleObject
+    return ExampleObject
 
-def _getExampleBaseCollectionClass():
-    TYPE_NAME = 'example_base_collection'
+def _getExampleCollectionClass():
+    TYPE_NAME = 'example_collection'
     if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
-    class ExampleBaseCollection(resources.collection.BaseCollection):
+    class ExampleCollection(resources.collection.Collection):
         _collection_name = TYPE_NAME
-        _object_classes = (_getExampleBaseObjectClass(),)
-    classes[TYPE_NAME] = ExampleBaseCollection
-    return ExampleBaseCollection
+        _object_classes = (_getExampleObjectClass(),)
+    classes[TYPE_NAME] = ExampleCollection
+    return ExampleCollection
 
 def _getExampleNamedObjectClass():
     TYPE_NAME = 'example_named_object'
@@ -84,7 +84,7 @@ def _getExampleObjectClassWithFiles():
     from audrey import resources
     import audrey.types
     import colander
-    class ExampleObjectWithFiles(resources.object.BaseObject):
+    class ExampleObjectWithFiles(resources.object.Object):
         _object_type = TYPE_NAME
         @classmethod
         def get_class_schema(cls, request=None):
@@ -94,33 +94,33 @@ def _getExampleObjectClassWithFiles():
     classes[TYPE_NAME] = ExampleObjectWithFiles
     return ExampleObjectWithFiles
 
-def _getExampleBaseCollectionClass():
-    TYPE_NAME = 'example_base_collection'
+def _getExampleCollectionClass():
+    TYPE_NAME = 'example_collection'
     if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
-    class ExampleBaseCollection(resources.collection.BaseCollection):
+    class ExampleCollection(resources.collection.Collection):
         _collection_name = TYPE_NAME
-        _object_classes = (_getExampleBaseObjectClass(), _getExampleObjectClassWithFiles(), )
-    classes[TYPE_NAME] = ExampleBaseCollection
-    return ExampleBaseCollection
+        _object_classes = (_getExampleObjectClass(), _getExampleObjectClassWithFiles(), )
+    classes[TYPE_NAME] = ExampleCollection
+    return ExampleCollection
 
 def _getExampleRootClass():
     TYPE_NAME = 'example_root'
     if TYPE_NAME in classes: return classes[TYPE_NAME]
     from audrey import resources
     class ExampleRoot(resources.root.Root):
-        _collection_classes = (_getExampleBaseCollectionClass(), _getExampleNamingCollectionClass(), )
+        _collection_classes = (_getExampleCollectionClass(), _getExampleNamingCollectionClass(), )
     classes[TYPE_NAME] = ExampleRoot
     return ExampleRoot
 
 def _makeOneRoot(request):
     return _getExampleRootClass()(request)
 
-def _makeOneBaseObject(request, title='A Title', body='<p>Some body.</p>', dateline=today, tags=set(['foo', 'bar'])):
-    return _getExampleBaseObjectClass()(request, title=title, dateline=dateline, body=body, tags=tags)
+def _makeOneObject(request, title='A Title', body='<p>Some body.</p>', dateline=today, tags=set(['foo', 'bar'])):
+    return _getExampleObjectClass()(request, title=title, dateline=dateline, body=body, tags=tags)
 
-def _makeOneBaseCollection(request):
-    return _getExampleBaseCollectionClass()(request)
+def _makeOneCollection(request):
+    return _getExampleCollectionClass()(request)
 
 def _makeOneNamedObject(request, name, title='A Title'):
     return _getExampleNamedObjectClass()(request, __name__=name, title=title)
@@ -196,37 +196,37 @@ class RootTests(unittest.TestCase):
         request = testing.DummyRequest()
         from audrey import resources
         class BadRoot(resources.root.Root):
-            _collection_classes = (_getExampleBaseCollectionClass(), _getExampleBaseCollectionClass())
+            _collection_classes = (_getExampleCollectionClass(), _getExampleCollectionClass())
         with self.assertRaises(ValueError) as cm:
             root = BadRoot(request)
-        self.assertEqual(cm.exception.args[0], '''Non-unique collection name: example_base_collection''')
+        self.assertEqual(cm.exception.args[0], '''Non-unique collection name: example_collection''')
 
     def test_child_getters(self):
         request = testing.DummyRequest()
         root = _makeOneRoot(request)
-        self.assertEqual(root.get_child_names(), ['example_base_collection', 'example_naming_collection'])
+        self.assertEqual(root.get_child_names(), ['example_collection', 'example_naming_collection'])
         with self.assertRaises(KeyError):
             root['foo']
-        self.assertEqual(root['example_base_collection'].__class__, _getExampleBaseCollectionClass())
+        self.assertEqual(root['example_collection'].__class__, _getExampleCollectionClass())
         self.assertEqual(root['example_naming_collection'].__class__, _getExampleNamingCollectionClass())
-        self.assertEqual([x.__class__ for x in root.get_children()], [_getExampleBaseCollectionClass(), _getExampleNamingCollectionClass()])
+        self.assertEqual([x.__class__ for x in root.get_children()], [_getExampleCollectionClass(), _getExampleNamingCollectionClass()])
 
 class CollectionTests(unittest.TestCase):
 
     def test_dupe_types(self):
         request = testing.DummyRequest()
         from audrey import resources
-        class BadCollection(resources.collection.BaseCollection):
+        class BadCollection(resources.collection.Collection):
             _collection_name = 'bad_collection'
-            _object_classes = (_getExampleBaseObjectClass(), _getExampleBaseObjectClass())
+            _object_classes = (_getExampleObjectClass(), _getExampleObjectClass())
         with self.assertRaises(ValueError) as cm:
             coll = BadCollection(request)
-        self.assertEqual(cm.exception.args[0], '''Non-unique object type: %s''' % 'example_base_object')
+        self.assertEqual(cm.exception.args[0], '''Non-unique object type: %s''' % 'example_object')
 
     def test_no_types(self):
         request = testing.DummyRequest()
         from audrey import resources
-        class BadCollection(resources.collection.BaseCollection):
+        class BadCollection(resources.collection.Collection):
             _collection_name = 'bad_collection'
             _object_classes = ()
         coll = BadCollection(request)
@@ -235,19 +235,19 @@ class CollectionTests(unittest.TestCase):
 class ObjectTests(unittest.TestCase):
 
     def test_get_schema(self):
-        self.assertEqual(len(_getBaseObjectClass().get_class_schema().children), 0)
-        self.assertEqual(len(_getExampleBaseObjectClass().get_class_schema().children), 4)
+        self.assertEqual(len(_getObjectClass().get_class_schema().children), 0)
+        self.assertEqual(len(_getExampleObjectClass().get_class_schema().children), 4)
 
     def test_constructor(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
+        instance = _makeOneObject(request)
         self.assertEqual(instance.title, "A Title")
         self.assertEqual(instance._created, None)
 
     def test_use_elastic(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
-        coll = _makeOneBaseCollection(request)
+        instance = _makeOneObject(request)
+        coll = _makeOneCollection(request)
         instance.__parent__ = coll
         self.assertTrue(instance.use_elastic())
         coll._use_elastic = False
@@ -255,7 +255,7 @@ class ObjectTests(unittest.TestCase):
 
     def test_get_nonschema_values(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
+        instance = _makeOneObject(request)
         vals = instance.get_nonschema_values()
         self.assertEqual(vals['_id'], None)
         self.assertTrue('_created' in vals)
@@ -265,20 +265,20 @@ class ObjectTests(unittest.TestCase):
 
     def test_get_schema_values(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
+        instance = _makeOneObject(request)
         vals = instance.get_schema_values()
         self.assertEqual(vals['title'], 'A Title')
         self.assertEqual(vals['body'], '<p>Some body.</p>')
 
     def test_get_mongo_save_doc(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
+        instance = _makeOneObject(request)
         doc = instance.get_mongo_save_doc()
         self.assertEqual(doc, {'body': '<p>Some body.</p>', '_created': None, '_modified': None, 'title': 'A Title', 'dateline': today_with_time, 'tags': ['foo', 'bar'], "_etag": instance._etag})
 
     def test_load_mongo_doc(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request, title='x', body='x', tags=[])
+        instance = _makeOneObject(request, title='x', body='x', tags=[])
         self.assertEqual(instance.title, "x")
         self.assertEqual(instance.body, "x")
         self.assertEqual(instance.tags, [])
@@ -289,13 +289,13 @@ class ObjectTests(unittest.TestCase):
 
     def test_get_elastic_index_doc(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
+        instance = _makeOneObject(request)
         doc = instance.get_elastic_index_doc()
         self.assertEqual(doc, {'text': 'A Title\nSome body.\nfoo\nbar', '_modified': None, '_created': None})
 
     def test_str(self):
         request = testing.DummyRequest()
-        instance = _makeOneBaseObject(request)
+        instance = _makeOneObject(request)
         s = str(instance)
         self.assertEqual(s, "{'_created': None,\n '_etag': None,\n '_id': None,\n '_modified': None,\n 'body': '<p>Some body.</p>',\n 'dateline': %s,\n 'tags': set(['bar', 'foo']),\n 'title': 'A Title'}" % repr(today))
         
@@ -333,8 +333,8 @@ class FunctionalTests(unittest.TestCase):
 
     def test_add_child(self):
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
-        instance = _makeOneBaseObject(self.request)
+        coll = root['example_collection']
+        instance = _makeOneObject(self.request)
         self.assertEqual(instance._id, None)
         self.assertEqual(instance._created, None)
         self.assertEqual(instance._modified, None)
@@ -347,8 +347,8 @@ class FunctionalTests(unittest.TestCase):
 
     def test_basic_crud(self):
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
-        instance = _makeOneBaseObject(self.request)
+        coll = root['example_collection']
+        instance = _makeOneObject(self.request)
         result = root.basic_fulltext_search()
         self.assertEqual(result['total'], 0)
         coll.add_child(instance)
@@ -376,24 +376,24 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(result['total'], 0)
 
     def test_unindex_notfound(self):
-        instance = _makeOneBaseObject(self.request)
+        instance = _makeOneObject(self.request)
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
+        coll = root['example_collection']
         coll.add_child(instance)
         self.assertEqual(instance.unindex(), 1)
         self.assertEqual(instance.unindex(), 0)
 
     def test_child_getters(self):
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
+        coll = root['example_collection']
         c_and_t = coll.get_children_and_total()
         self.assertEqual(c_and_t['total'], 0)
         self.assertEqual(c_and_t['items'], [])
         from bson.objectid import ObjectId
         self.assertEqual(coll.get_child_by_id(ObjectId()), None)
-        instance = _makeOneBaseObject(self.request)
-        instance2 = _makeOneBaseObject(self.request, title='Another')
-        instance3 = _makeOneBaseObject(self.request, title='One More')
+        instance = _makeOneObject(self.request)
+        instance2 = _makeOneObject(self.request, title='Another')
+        instance3 = _makeOneObject(self.request, title='One More')
         self.assertNotEqual(instance.title, instance2.title)
         coll.add_child(instance)
         c_and_t = coll.get_children_and_total()
@@ -432,22 +432,22 @@ class FunctionalTests(unittest.TestCase):
 
     def test_veto_add(self):
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
+        coll = root['example_collection']
         from audrey.exceptions import Veto
         with self.assertRaises(Veto) as cm:
             coll.add_child(root)
-        self.assertEqual(cm.exception.args[0], '''Cannot add <class 'audrey.tests.ExampleRoot'> to <class 'audrey.tests.ExampleBaseCollection'>.''')
+        self.assertEqual(cm.exception.args[0], '''Cannot add <class 'audrey.tests.ExampleRoot'> to <class 'audrey.tests.ExampleCollection'>.''')
         instance = _makeOneNamedObject(self.request, 'foo')
         with self.assertRaises(Veto) as cm:
             coll.add_child(instance)
-        self.assertEqual(cm.exception.args[0], '''Cannot add example_named_object to example_base_collection.''')
+        self.assertEqual(cm.exception.args[0], '''Cannot add example_named_object to example_collection.''')
 
     def test_deletes(self):
         root = _makeOneRoot(self.request)
-        coll = root['example_base_collection']
-        instance1 = _makeOneBaseObject(self.request, title='Instance #1')
-        instance2 = _makeOneBaseObject(self.request, title='Instance #2')
-        instance3 = _makeOneBaseObject(self.request, title='Instance #3')
+        coll = root['example_collection']
+        instance1 = _makeOneObject(self.request, title='Instance #1')
+        instance2 = _makeOneObject(self.request, title='Instance #2')
+        instance3 = _makeOneObject(self.request, title='Instance #3')
         coll.add_child(instance1)
         coll.add_child(instance2)
         coll.add_child(instance3)
@@ -474,22 +474,22 @@ class FunctionalTests(unittest.TestCase):
 
     def test_indexing(self):
         root = _makeOneRoot(self.request)
-        base_coll = root['example_base_collection']
-        baseinstance1 = _makeOneBaseObject(self.request, title='Base Instance One')
-        baseinstance2 = _makeOneBaseObject(self.request, title='Base Instance Two')
-        baseinstance3 = _makeOneBaseObject(self.request, title='Base Instance Three')
+        coll = root['example_collection']
+        instance1 = _makeOneObject(self.request, title='Instance One')
+        instance2 = _makeOneObject(self.request, title='Instance Two')
+        instance3 = _makeOneObject(self.request, title='Instance Three')
         self.assertEqual(root.search_raw()['hits']['total'], 0)
-        base_coll.add_child(baseinstance1)
+        coll.add_child(instance1)
         self.assertEqual(root.search_raw()['hits']['total'], 1)
-        base_coll.add_child(baseinstance2)
+        coll.add_child(instance2)
         self.assertEqual(root.search_raw()['hits']['total'], 2)
-        base_coll.add_child(baseinstance3)
+        coll.add_child(instance3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
-        base_coll._clear_elastic()
+        coll._clear_elastic()
         self.assertEqual(root.search_raw()['hits']['total'], 0)
-        self.assertEqual(base_coll._reindex_all(), 3)
+        self.assertEqual(coll._reindex_all(), 3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
-        self.assertEqual(base_coll._reindex_all(clear=True), 3)
+        self.assertEqual(coll._reindex_all(clear=True), 3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
 
         name_coll = root['example_naming_collection']
@@ -506,16 +506,16 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(root.search_raw()['hits']['total'], 6)
         result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], sort='_created')
         self.assertEqual(result['total'], 2)
-        self.assertEqual(result['items'][0]['object']._id, baseinstance3._id)
+        self.assertEqual(result['items'][0]['object']._id, instance3._id)
         self.assertEqual(result['items'][1]['object']._id, namedinstance3._id)
-        self.assertEqual(result['items'][0]['highlight'], {u'text': [u'Base Instance <em>Three</em>\nSome body.\nfoo\nbar']})
+        self.assertEqual(result['items'][0]['highlight'], {u'text': [u'Instance <em>Three</em>\nSome body.\nfoo\nbar']})
         self.assertEqual(result['items'][1]['highlight'], {u'text': [u'Named Instance <em>Three</em>']})
         result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], collection_names=['example_naming_collection'])
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]['object']._id, namedinstance3._id)
-        result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], collection_names=['example_base_collection'])
+        result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], collection_names=['example_collection'])
         self.assertEqual(result['total'], 1)
-        self.assertEqual(result['items'][0]['object']._id, baseinstance3._id)
+        self.assertEqual(result['items'][0]['object']._id, instance3._id)
 
     def test_naming_crud(self):
         root = _makeOneRoot(self.request)

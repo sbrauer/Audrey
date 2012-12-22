@@ -10,7 +10,7 @@ class Reference(object):
     This type constructor accepts one argument:
 
     ``collection``
-       The name of the :class:`audrey.resources.collection.BaseCollection`
+       The name of the :class:`audrey.resources.collection.Collection`
        that this reference will always refer to.
        May be None if this reference may refer to multiple collections.
 

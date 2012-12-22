@@ -4,7 +4,7 @@ from pyramid.httpexceptions import HTTPNotFound
 
 class File(object):
     """ Wrapper around a GridFS file.
-    Instances of BaseObject use this File type for attributes 
+    Instances of Object use this File type for attributes 
     that refer to files in the GridFS.
     """
 
