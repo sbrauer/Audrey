@@ -91,7 +91,7 @@ Setup Audrey
    Then::
 
        cd Audrey
-       python setup.pt develop
+       python setup.py develop
 
    [FIXME: Upload Audrey to PyPI so you can just pip install it.]
 
@@ -120,16 +120,16 @@ Audrey provides some base resource classes for a developer to subclass
 to model the objects specific to their application.  The main classes
 are:
 
-1. `Object <#module-audrey.resources.object>`_ - This is the fundamental
-building block of an Audrey application.  Objects have methods to save
-themselves to MongoDB, load themselves from MongoDB and index/reindex/unindex
+1. :class:`audrey.resources.object.Object` - This is the fundamental
+building block of an Audrey application.  Objects have methods to
+save/load/remove themselves in MongoDB and index/reindex/unindex
 themselves in ElasticSearch.
 
-2. `Collection <#module-audrey.resources.collection>`_ - Collections are sets
+2. :class:`audrey.resources.collection.Collection` - Collections are sets
 of Objects.  They correspond to MongoDB collections and have various methods
 to access and manipulate their child objects.
 
-3. `Root <#module-audrey.resources.root>`_ - Root is the container of 
+3. :class:`audrey.resources.root.Root` - Root is the container of 
 Collections and represents the root of your app.  It also provides
 various "global" services (such as search, cross-collection references,
 and file uploads).
@@ -144,9 +144,72 @@ ElasticSearch.
 So let's dive into the details...
 
 After you create a new project using the ``audrey`` scaffold, you'll have
-a ``resources.py`` file with content similar to the following::
+a ``resources.py`` file with example content similar to the following:
 
-    FIXME
+.. literalinclude:: resources.py
+   :linenos:
+
+Starting at line 4, a ``Person`` class is defined that subclasses :class:`audrey.resources.object.Object`.
+
+At line 5, the class attribute ``_object_type`` is overridden.  The value of 
+this attribute should be a string that uniquely identifies the Object type
+(within the context of your project).  It's used in many places as a key
+to lookup a given Object class.  There are no restrictions on the characters it may contain, so feel free to make it human readable (using spaces instead of underscores to separate words, for example).
+
+In lines 7-14, the class method ``get_class_schema()`` is overridden.  This
+method should return a colander schema representing the user-editable
+attributes for the Object type (the sort of attributes that might
+be shown as fields in an edit form).  This is standard colander stuff, but note
+that Audrey defines a couple of its own colander types:
+
+1. :class:`audrey.types.File` - This type represents an uploaded file which
+will be stored in the MongoDB GridFS.  As an example, see line 12 where a
+File attribute with the name ``photo`` is defined for the ``person`` type.
+
+2. :class:`audrey.types.Reference` - This type represents a reference
+to another Object (possibly in another collection).
+As an example, see lines 42-44 where a Reference attribute with the name ``author`` is defined for the ``post`` type.
+
+In lines 16-25, the method ``_title()`` is overridden.  This method should
+return a string suitable for use as a human-friendly title of an Object 
+instance (as might be shown as the text in a link to the object).
+If you don't override this method, it will return the object's ``__name__``
+by default.  The implementation of ``Person._title()`` is a little long 
+since it tries to be flexible and handle cases where the "firstname" and "lastname" attributes may not have been set yet, or may be empty.  The implementation 
+of ``Post._title()`` at line 48 is a one-liner suitable for types that
+have a single attribute that's a natural fit for a title.
+
+For a lot of object types, these two methods and one attribute will be all
+you need to override.  Of course, you may opt to add new methods and/or 
+attributes of your own.
+
+Moving on, lines 27-29 define a ``People`` class that subclasses :class:`audrey.resources.collection.Collection`.  This is pretty short and sweet.
+
+Line 28 overrides the ``_collection_name`` class attribute.  The value of this
+attribute is a string that uniquely identifies the Collection within the content of your project.  It's used as a key/name to traverse from the root of the app
+to a singleton instance of the Collection.
+
+Line 29 overrides the ``_object_classes`` class attribute.  The value of this attribute is a sequence of Object classes representing the types of Objects that may exist in the Collection.  In this case, the People Collection is homogenous and only contains Person Objects.  You can, however, define Collections that may contain multiple Object types (presumably with some common sub-schema).
+
+.. FIXME - link classnames in next paragrah
+
+Lines 31-52 define another Object type and another homogenous Collection.
+The only significant difference is that instead of subclassing :class:`Object`
+and :class:`Collection`, NamedObject and NamingCollection are subclassed.
+This is done purely for the sake of an example.  The distinction between
+the two is that NamedObject and NamingCollection allow end users to 
+assign the ``__name__`` attributes of object instances.  Since the ``__name__`` is used for traversal, this is useful in cases where you want to allow users
+to have some control over the URLs used to access resources.  The non-naming
+Object and Collection classes automatically assign opaque ``__name__`` values;
+in fact, string versions of the ObjectIds that MongoDB assigns to newly inserted documents are used as the names.  Pick whichever makes sense for your use case.
+
+.. note::
+   On the TODO list for Audrey is the addition of a FolderObject and corresponding HierarchicalCollection (names subject to change).  These would allow for nesting of NamedObjects which would allow end users even more control over URLs with the ability to create arbitrarily deep hierarchies.  This could be useful for applications like a CMS (similar to Zope CMF and Plone).
+
+Lines 54 and 55 define a ``Root`` class that subclasses :class:`audrey.resources.root.Root` and overrides the ``_collection_classes`` class attribute.  The value of this attribute is a sequence of Collection classes representing all the Collections in use in the app.
+
+Lines 57 and 58 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
+
 
 API
 ===
