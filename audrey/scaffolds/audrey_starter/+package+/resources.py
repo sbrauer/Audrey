@@ -1,5 +1,4 @@
 import audrey
-import audrey.types
 import colander
 
 # The following classes are just some examples to get you started with Audrey.
@@ -20,7 +19,7 @@ class Person(audrey.resources.object.Object):
                                        default=None, missing=None))
         return schema
 
-    def _title(self):
+    def get_title(self):
         parts = []
         for att in ('firstname', 'lastname'):
             val = getattr(self, att, '')
@@ -51,7 +50,7 @@ class Post(audrey.resources.object.NamedObject):
             name='author', default=None, missing=None))
         return schema
 
-    def _title(self):
+    def get_title(self):
         return getattr(self, 'title', None) or 'Untitled'
 
 class Posts(audrey.resources.collection.NamingCollection):

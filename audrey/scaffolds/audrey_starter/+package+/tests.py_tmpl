@@ -47,10 +47,10 @@ class ObjectTests(unittest.TestCase):
     def test_person_title(self):
         request = testing.DummyRequest()
         p = _getPersonClass()(request)
-        self.assertEqual(p._title(), 'Untitled')
+        self.assertEqual(p.get_title(), 'Untitled')
         p.firstname = 'Some'
         p.lastname = 'Body'
-        self.assertEqual(p._title(), 'Some Body')
+        self.assertEqual(p.get_title(), 'Some Body')
 
     def test_post_schema(self):
         schema = _getPostClass().get_class_schema()
@@ -59,9 +59,9 @@ class ObjectTests(unittest.TestCase):
     def test_post_title(self):
         request = testing.DummyRequest()
         p = _getPostClass()(request)
-        self.assertEqual(p._title(), 'Untitled')
+        self.assertEqual(p.get_title(), 'Untitled')
         p.title = 'Hello World'
-        self.assertEqual(p._title(), 'Hello World')
+        self.assertEqual(p.get_title(), 'Hello World')
 
 # The following TestCase can be used for tests needing access
 # to MongoDB and ElasticSearch servers.
@@ -107,5 +107,5 @@ class FunctionalTests(unittest.TestCase):
         post = _makeOnePost(self.request)
         from audrey.resources.reference import Reference
         post.author = Reference('people', person._id, True)
-        self.assertEqual(root.get_object_for_reference(post.author)._title(), 'Some Body')
+        self.assertEqual(root.get_object_for_reference(post.author).get_title(), 'Some Body')
 

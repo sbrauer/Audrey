@@ -15,23 +15,23 @@ import audrey.types
 GRIDFS_COLLECTION = "fs"
 
 class Object(object):
-    """ Base class for objects that can be stored in MongoDB.
-    Includes support for Deform; simply override the get_class_schema()
-    class method to return a Colander schema for your class.
-    """
+    """ Base class for objects that can be stored in MongoDB and
+    indexed in ElasticSearch.
 
-    # Developers extending Audrey should create their own subclass(es) of 
-    # Object that:
-    # - override _object_type; this string should uniquely identify the Object
-    #   type within the context of a given Audrey application
-    # - override get_class_schema() to return a colander schema for the type.
-    #   Audrey makes use of the following custom SchemaNode kwargs
-    #   for String nodes:
-    #   - include_in_text: boolean, defaults to True; if True, the value will be included in Elastic's full text index.
-    #   - is_html: boolean, defaults to False; if True, the value will be stripped of html markup before being indexed in Elastic.
-    # - override _title() to return a suitable title string
-    # If the type has some non-schema attributes that you store in Mongo,
-    # override get_nonschema_values() and set_nonschema_values().
+    Developers extending Audrey should create their own subclass(es) of 
+    Object that:
+    - override _object_type; this string should uniquely identify the Object
+      type within the context of a given Audrey application
+    - override get_class_schema() to return a colander schema for the type.
+      Audrey makes use of the following custom SchemaNode kwargs
+      for String nodes:
+      - include_in_text: boolean, defaults to True; if True, the value will be included in Elastic's full text index.
+      - is_html: boolean, defaults to False; if True, the value will be stripped of html markup before being indexed in Elastic.
+    - override get_title() to return a suitable title string
+
+    If the type has some non-schema attributes that you store in Mongo,
+    override get_nonschema_values() and set_nonschema_values().
+    """
 
     _object_type = "object"
 
@@ -123,7 +123,7 @@ class Object(object):
     def __str__(self):
         return pformat(self.get_all_values())
 
-    def _title(self):
+    def get_title(self):
         # Subclasses should override this method to return
         # a reasonable title for this instance.
         return self.__name__ or 'Untitled'

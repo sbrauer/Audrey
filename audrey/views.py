@@ -41,7 +41,7 @@ class LinkingItemHandler(ItemHandler):
     def handle_item(self, context, request):
         return dict(name=context.__name__,
                     href=request.resource_url(context),
-                    title=context._title())
+                    title=context.get_title())
 
 class LinkingSearchItemHandler(LinkingItemHandler):
     def handle_item(self, context, request):
@@ -55,7 +55,7 @@ class LinkingSearchItemHandler(LinkingItemHandler):
         ret = dict(
                 name="%s:%s" % (object.__parent__.__name__, object.__name__),
                 href=request.resource_url(object),
-                title=object._title())
+                title=object.get_title())
         if highlight: ret['highlight'] = highlight
         return ret
 
@@ -65,7 +65,7 @@ class LinkingReferenceHandler(ItemHandler):
     def handle_item(self, context, request):
         return dict(name=str(context._id),
                     href=request.resource_url(context),
-                    title=context._title())
+                    title=context.get_title())
 
 DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
 DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
@@ -92,7 +92,7 @@ def collection_options(context, request):
 def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
     ret = context.get_all_values()
     ret['_object_type'] = context._object_type
-    ret['_title'] = context._title()
+    ret['_title'] = context.get_title()
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         curie = get_curie(context, request),
