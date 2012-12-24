@@ -185,8 +185,7 @@ class Object(object):
         h.update(str(self.get_schema_values()))
         return h.hexdigest()
 
-    # FIXME... implement and test
-    def roundtrip_thru_schema(self):
+    def validate_schema(self):
         """ Runs the instance's schema attribute values
         thru a serialize-deserialize roundtrip.
         This will raise a colander.Invalid exception if the

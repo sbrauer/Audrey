@@ -4,19 +4,20 @@ from collections import OrderedDict
 import string
 
 class Collection(object):
-
-    # Developers extending Audrey should create their own subclass(es) of 
-    # Collection that:
-    # - override _collection_name; this string is used for traversal
-    #   to a Collection from Root, as the name of the MongoDB collection,
-    #   and as the name of the ElasticSearch doctype.
-    # - override either the _object_classes attribute or
-    #   the get_object_classes() class method.
-    #   Either way, get_object_classes() should return 
-    #   a sequence of Object classes stored in this collection.
-    # - override _use_elastic = False, if Elastic indexing isn't desired.
-    # If Mongo indexes or Elastic mappings are desired, override
-    # get_mongo_indexes() and/or get_elastic_mapping().
+    """
+    Developers extending Audrey should create their own subclass(es) of 
+    Collection that:
+    - override _collection_name; this string is used for traversal
+      to a Collection from Root, as the name of the MongoDB collection,
+      and as the name of the ElasticSearch doctype.
+    - override either the _object_classes attribute or
+      the get_object_classes() class method.
+      Either way, get_object_classes() should return 
+      a sequence of Object classes stored in this collection.
+    - override _use_elastic = False, if Elastic indexing isn't desired.
+    If Mongo indexes or Elastic mappings are desired, override
+    get_mongo_indexes() and/or get_elastic_mapping().
+    """
 
     _collection_name = 'base_collection'
 

@@ -6,12 +6,13 @@ from collections import OrderedDict
 from audrey.resources.file import File
 
 class Root(object):
-
-    # Developers extending Audrey should create their own subclass of Root
-    # that overrides either the _collection_classes attribute or
-    # the get_collection_classes() class method.
-    # Either way, get_collection_classes() should return 
-    # a sequence of Collection classes.
+    """
+    Developers extending Audrey should create their own subclass of Root
+    that overrides either the _collection_classes attribute or
+    the get_collection_classes() class method.
+    Either way, get_collection_classes() should return 
+    a sequence of Collection classes.
+    """
 
     _collection_classes = ()
 

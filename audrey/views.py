@@ -74,12 +74,10 @@ DEFAULT_REFERENCE_HANDLER = LinkingReferenceHandler()
 def object_options(context, request):
     request.response.allow = "HEAD,GET,OPTIONS,PUT,DELETE"
     request.response.status_int = 204 # No Content
-    return {}
 
 def root_options(context, request):
     request.response.allow = "HEAD,GET,OPTIONS"
     request.response.status_int = 204 # No Content
-    return {}
 
 def collection_options(context, request):
     if isinstance(request.context, resources.collection.NamingCollection):
@@ -87,7 +85,6 @@ def collection_options(context, request):
     else:
         request.response.allow = "HEAD,GET,OPTIONS,POST"
     request.response.status_int = 204 # No Content
-    return {}
 
 def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
     ret = context.get_all_values()
@@ -121,13 +118,12 @@ def test_preconditions(context, request):
     # Returns None on success, or a dictionary with an "error" key on failure.
     # Also sets response status code on failure.
     # Possible failure statuses:
-    # 403 Forbidden: Precondition headers (If-Unmodified-Since and If-Match) missing.
     # 412 Precondition Failed
     if_unmodified_since = request.headers.get('If-Unmodified-Since')
     if_match = request.headers.get('If-Match')
     if not (if_unmodified_since and if_match):
-        request.response.status_int = 403 # Forbidden
-        return dict(error='Requests must supply both If-Unmodified-Since and If-Match headers.')
+        request.response.status_int = 412 # Precondition Failed
+        return dict(error='Requests must supply If-Unmodified-Since and If-Match headers.')
     if if_match != ('"%s"' % context._etag):
         request.response.status_int = 412 # Precondition Failed
         return dict(error='If-Match header does not match current Etag.')
@@ -144,7 +140,6 @@ def object_put(context, request):
     # In the event of schema validation errors, there will also be an "errors"
     # key containing a dictionary mapping field names to error messages.
     # Possible failure statuses:
-    # 403 Forbidden: Precondition headers (If-Unmodified-Since and If-Match) missing.
     # 412 Precondition Failed
     # 400 Bad Request: Validation failed.
     err = test_preconditions(context, request)
@@ -161,7 +156,6 @@ def object_put(context, request):
     context.save()
     request.response.status_int = 204 # No Content
     request.response.content_location = request.resource_url(context)
-    return {}
 
 def object_delete(context, request):
     # Delete an existing object.
@@ -175,7 +169,6 @@ def object_delete(context, request):
     if err: return err
     context.__parent__.delete_child(context)
     request.response.status_int = 204 # No Content
-    return {}
 
 def collection_rename(context, request):
     json_body = request.json_body
@@ -193,7 +186,6 @@ def collection_rename(context, request):
     request.response.status_int = 204 # No Content
     request.response.content_location = request.resource_url(obj)
     request.response.location = request.resource_url(obj)
-    return {}
 
 def root_get(context, request):
     ret = {}
@@ -358,6 +350,7 @@ def collection_post(context, request, __name__=None):
     request.response.status_int = 201 # Created
     request.response.content_location = request.resource_url(obj)
     request.response.location = request.resource_url(obj)
+    # FIXME: Should the body contain a representation of the object?
     return {}
 
 def collection_schema(context, request):
