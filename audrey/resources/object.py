@@ -51,16 +51,18 @@ class Object(object):
     # The values should be "demongified".
     def __init__(self, request, **kwargs):
         self.request = request
-        if kwargs:
-            self.set_schema_values(**kwargs)
-            self.set_nonschema_values(**kwargs)
+        self.set_schema_values(**kwargs)
+        self.set_nonschema_values(**kwargs)
 
     def use_elastic(self):
         assert getattr(self, '__parent__', None), "parentless child!"
         return self._use_elastic and self.__parent__._use_elastic
 
     def get_schema(self):
-        return self.get_class_schema(self.request)
+        # As an optimization, only generate the schema once per request.
+        if not hasattr(self, '__schema__'):
+            self.__schema__ = self.get_class_schema(self.request)
+        return self.__schema__
 
     def get_schema_names(self):
         return [node.name for node in self.get_schema().children]
@@ -152,18 +154,21 @@ class Object(object):
 
         # Determine all the GridFS file ids that this object
         # now refers to and used to refer to.
-        dbref = self.get_dbref()
         root = find_root(self)
         fs_files_coll = root.get_gridfs()._GridFS__files
         new_file_ids = set([x._id for x in self.get_all_files()])
         old_file_ids = set()
         if self._id:
+            dbref = self.get_dbref()
             for item in fs_files_coll.find({'parents':dbref}, fields=[]):
                 old_file_ids.add(item['_id'])
 
         # Persist the object in Mongo.
         doc = self.get_mongo_save_doc()
-        self._id = self.get_mongo_collection().save(doc, safe=True)
+        id = self.get_mongo_collection().save(doc, safe=True)
+        if not self._id:
+            self._id = id
+            dbref = self.get_dbref()
 
         # Update GridFS file "parents".
         ids_to_remove = old_file_ids - new_file_ids
@@ -179,6 +184,19 @@ class Object(object):
         h = hashlib.new('md5')
         h.update(str(self.get_schema_values()))
         return h.hexdigest()
+
+    # FIXME... implement and test
+    def roundtrip_thru_schema(self):
+        """ Runs the instance's schema attribute values
+        thru a serialize-deserialize roundtrip.
+        This will raise a colander.Invalid exception if the
+        schema fails to validate.
+        Otherwise it will have the effect of applying default and
+        missing values.
+        """
+        schema = self.get_schema()
+        data = schema.deserialize(schema.serialize(self.get_schema_values()))
+        self.set_schema_values(**data)
 
     def load_mongo_doc(self, doc):
         clean = _demongify_values(doc)

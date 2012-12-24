@@ -1,12 +1,6 @@
 import audrey
 import colander
 
-# The following classes are just some examples to get you started with Audrey.
-# For the sake of an example, the Person type (and People collection)
-# are non-naming, while the Post type (and Posts collection) are naming.
-# Whether or not to use names depends on your app and how meaningful
-# (or not) you want your URLs to be.
-
 class Person(audrey.resources.object.Object):
     _object_type = "person"
 
@@ -34,15 +28,16 @@ class People(audrey.resources.collection.Collection):
     _collection_name = 'people'
     _object_classes = (Person,)
 
-class Post(audrey.resources.object.NamedObject):
+class Post(audrey.resources.object.Object):
     _object_type = "post"
 
     @classmethod
     def get_class_schema(cls, request=None):
         schema = colander.SchemaNode(colander.Mapping())
         schema.add(colander.SchemaNode(colander.String(), name='title'))
-        schema.add(colander.SchemaNode(colander.DateTime(), name='dateline',
-                                       missing=audrey.dateutil.utcnow()))
+        schema.add(colander.SchemaNode(colander.DateTime(),
+            name='dateline',
+            missing=audrey.dateutil.utcnow(zero_seconds=True)))
         schema.add(colander.SchemaNode(colander.String(), name='body',
                                        is_html=True))
         schema.add(colander.SchemaNode(
@@ -53,7 +48,7 @@ class Post(audrey.resources.object.NamedObject):
     def get_title(self):
         return getattr(self, 'title', None) or 'Untitled'
 
-class Posts(audrey.resources.collection.NamingCollection):
+class Posts(audrey.resources.collection.Collection):
     _collection_name = 'posts'
     _object_classes = (Post,)
 

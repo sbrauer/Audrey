@@ -285,7 +285,7 @@ class NamingCollection(Collection):
 
     def veto_child_name(self, name, unique=True):
         if name is not None: name = name.strip()
-        if not name: return "Name may not be blank."
+        if not name: return "Name may not be empty."
         err = self.validate_name_format(name)
         if err: return err
         if unique and self.has_child_with_name(name): return "The name \"%s\" is already in use." % name
