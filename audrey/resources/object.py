@@ -112,10 +112,10 @@ class Object(object):
 
         :rtype: dictionary with the keys:
 
-        * "_id": ObjectId or None
-        * "_created": datetime.datetime (UTC) or None
-        * "_modified": datetime.datetime (UTC) or None
-        * "_etag": string or None
+                * "_id": ObjectId or None
+                * "_created": datetime.datetime (UTC) or None
+                * "_modified": datetime.datetime (UTC) or None
+                * "_etag": string or None
         """
         values = {}
         values['_id'] =  getattr(self, '_id', None)
@@ -484,6 +484,12 @@ class NamedObject(Object):
         Object.__init__(self, request, **kwargs)
 
     def get_nonschema_values(self):
+        """ Get the names and values of "non-schema" attributes.
+
+        :rtype: dictionary with the same keys as returned by :meth:`Object.get_nonschema_values` plus:
+
+        * "__name__": string or None
+        """
         values = Object.get_nonschema_values(self)
         values['__name__'] = self.__name__
         return values

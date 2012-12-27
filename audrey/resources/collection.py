@@ -5,18 +5,27 @@ import string
 
 class Collection(object):
     """
+    A Collection of Objects.  Corresponds to a MongoDB Collection (and 
+    an ElasticSearch "type").
+
     Developers extending Audrey should create their own subclass(es) of 
     Collection that:
-    - override _collection_name; this string is used for traversal
-      to a Collection from Root, as the name of the MongoDB collection,
-      and as the name of the ElasticSearch doctype.
-    - override either the _object_classes attribute or
-      the get_object_classes() class method.
-      Either way, get_object_classes() should return 
-      a sequence of Object classes stored in this collection.
-    - override _use_elastic = False, if Elastic indexing isn't desired.
-    If Mongo indexes or Elastic mappings are desired, override
-    get_mongo_indexes() and/or get_elastic_mapping().
+
+    * override class attribute :attr:`_collection_name`; this string is used
+      for traversal to a Collection from Root, as the name of the MongoDB
+      collection, and as the name of the ElasticSearch doctype.
+    * override either the :attr:`_object_classes` class attribute or
+      the :meth:`get_object_classes` class method.
+      Either way, :meth:`get_object_classes` should return 
+      a sequence of the :class:`audrey.resources.object.Object` classes
+      that can be stored in this collection.
+
+    If Mongo indexes are desired for the collection, override the class method
+    :meth:`get_mongo_indexes`.
+
+    If an ElasticSearch mapping is desired, override the class method :meth:`get_elastic_mapping`.
+
+    If ElasticSearch indexing isn't desired, override the class attribute :attr:`_use_elastic` to ``False``.
     """
 
     _collection_name = 'base_collection'
@@ -35,6 +44,11 @@ class Collection(object):
 
     @classmethod
     def get_object_classes(cls):
+        """ Returns a sequence of the Object classes that this Collection
+        manages.
+
+        :rtype: sequence of :class:`audrey.resources.object.Object` classes
+        """
         return cls._object_classes
 
     # Return a list of data about the desired Mongo indexes for this collection.
@@ -45,13 +59,26 @@ class Collection(object):
     # See http://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.ensure_index
     @classmethod
     def get_mongo_indexes(cls):
+        """
+        Return a list of data about the desired MongoDB indexes for this
+        collection.  The first item of each tuple is the ensure_index
+        ``key_or_list`` parm.  The second item of each tuple is a dictionary
+        that will be passed as kwargs.
+
+        :rtype: sequence of two-item tuples, each with the two parameters to be passed to a call to :meth:`pymongo.collection.Collection.ensure_index`
+
+        The default implementation returns an empty list, meaning that no indexes will be ensured.
+        """
         return []
 
-    # Return a dictionary representing ElasticSearch mapping properties
-    # for this collection.
-    # See http://www.elasticsearch.org/guide/reference/mapping/
     @classmethod
     def get_elastic_mapping(cls):
+        """ Return a dictionary representing ElasticSearch mapping properties
+        for this collection.
+        Refer to http://www.elasticsearch.org/guide/reference/mapping/
+
+        :rtype: dictionary
+        """
         mapping = {}
         mapping['text'] = dict(type='string', include_in_all=True)
         mapping['_created'] = dict(type='date', format='dateOptionalTime', include_in_all=False)
@@ -68,24 +95,63 @@ class Collection(object):
             self._object_classes_by_type[obj_type] = obj_cls
 
     def get_object_types(self):
+        """ Return the ``_object_types`` that this collection manages.
+
+        :rtype: list of strings
+        """
         return [cls._object_type for cls in self.get_object_classes()]
 
     def get_object_class(self, object_type):
+        """ Return the class that corresponds to the ``object_type`` string.
+
+        :param object_type: name of an object type
+        :type object_type: string
+        :rtype: :class:`audrey.resources.object.Object` class or ``None``
+        """
         return self._object_classes_by_type.get(object_type)
 
     def get_mongo_collection(self):
+        """ Return the MongoDB Collection for this collection.
+
+        :rtype: :class:`pymongo.collection.Collection`
+        """
         return self.__parent__.get_mongo_collection(self._collection_name)
 
     def get_elastic_connection(self):
+        """ Return a connection to the ElasticSearch server.
+
+        :rtype: :class:`pyes.es.ES`
+        """
         return self.__parent__.get_elastic_connection()
 
     def get_elastic_index_name(self):
+        """ Return the name of the ElasticSearch index.
+
+        Note that all objects in an Audrey app will use the same Elastic
+        index (the index name is analogous to a database name).
+        This is just a convenience method that returns the name from the root.
+
+        :rtype: string
+        """
         return self.__parent__.get_elastic_index_name()
 
     def get_elastic_doctype(self):
+        """ Return the ElasticSearch document type for this collection.
+
+        Note that Audrey uses the ``_collection_name`` as the doctype.
+
+        :rtype: string
+        """
         return self._collection_name
 
     def construct_child_from_mongo_doc(self, doc):
+        """ Given a MongoDB document (presumably from this collection),
+        construct and return an Object.
+
+        :param doc: a MongoDB document (such as returned by :meth:`pymongo.collection.Collection.find_one`)
+        :type doc: dictionary
+        :rtype: :class:`audrey.resources.object.Object`
+        """
         obj = self._get_child_class_from_mongo_doc(doc)(self.request)
         obj.load_mongo_doc(doc)
         if self._NAME_FIELD == self._ID_FIELD:
@@ -93,25 +159,39 @@ class Collection(object):
         obj.__parent__ = self
         return obj
 
-    # For homogenous collections (ones that store only one Object class)
-    # the following implementation is fine.
-    # For non-homogenous collections, a developer should make sure that 
-    # the documents stored in Mongo have some data that identifies what
-    # Object class should be used to construct instances, and override
-    # this method to return the appropriate class for a given document.
-    # return self.get_object_class(obj_type)
     def _get_child_class_from_mongo_doc(self, doc):
+        """ Given a MongoDB document (presumably from this collection),
+        return the appropriate object class (which could be used
+        to construct an Object from the document).
+
+        :param doc: a MongoDB document (such as returned by :meth:`pymongo.collection.Collection.find_one`)
+        :type doc: dictionary
+        :rtype: :class:`audrey.resources.object.Object` class or ``None``
+        """
         classes = self.get_object_classes()
-        if classes: return classes[0]
-        return None
+        if len(classes) == 1:
+            # A homogenous collection (only one Object class).
+            return classes[0]
+        # Assume doc has a key '_object_type'.
+        return self.get_object_class(doc['_object_type'])
 
     def has_child_with_id(self, id):
-        # id should be an ObjectId (not a string)
+        """ Does this collection have a child with the given ``id``?
+
+        :param id: an ObjectId
+        :type id: :class:`bson.objectid.ObjectId`
+        :rtype: boolean
+        """
         doc = self.get_mongo_collection().find_one(dict(_id=id), fields=[])
         return doc is not None
 
     def get_child_by_id(self, id):
-        # id should be an ObjectId (not a string)
+        """ Return the child object for the given ``id``.
+
+        :param id: an ObjectId
+        :type id: :class:`bson.objectid.ObjectId`
+        :rtype: :class:`audrey.resources.object.Object` class or ``None``
+        """
         doc = self.get_mongo_collection().find_one(dict(_id=id))
         if doc is None:
             return None
@@ -125,6 +205,12 @@ class Collection(object):
         return id
 
     def has_child_with_name(self, name):
+        """ Does this collection have a child with the given ``name``?
+
+        :param name: an object name
+        :type name: string
+        :rtype: boolean
+        """
         id = self._str_to_id(name)
         if id:
             return self.has_child_with_id(id)
@@ -132,6 +218,12 @@ class Collection(object):
             return False
 
     def get_child_by_name(self, name):
+        """ Return the child object for the given ``name``.
+
+        :param name: an object name
+        :type name: string
+        :rtype: :class:`audrey.resources.object.Object` class or ``None``
+        """
         id = self._str_to_id(name)
         if id:
             return self.get_child_by_id(id)
@@ -152,6 +244,23 @@ class Collection(object):
     ###
 
     def get_children_and_total(self, spec=None, sort=None, skip=0, limit=0):
+        """ Query for children and return the total number of matching children
+        and a list of the children (or a batch of children if the ``limit``
+        parameter is non-zero).
+
+        :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
+        :type spec: dictionary or ``None``
+        :param sort: a MongoDB sort parameter
+        :type sort: a list of (key, direction) tuples or ``None``
+        :param skip: number of documents to omit from start of result set
+        :type skip: integer
+        :param limit: maximum number of children to return
+        :type limit: integer
+        :rtype: dictionary with the keys:
+
+                * "total" - an integer indicating the total number of children matching the query ``spec``
+                * "items" - a sequence of :class:`audrey.resources.object.Object` instances
+        """
         cursor = self.get_mongo_collection().find(spec=spec, sort=sort, skip=skip, limit=limit)
         total = cursor.count()
         items = []
@@ -161,15 +270,52 @@ class Collection(object):
         return dict(total=total, items=items)
 
     def get_children(self, spec=None, sort=None, skip=0, limit=0):
+        """ Return the children matching the query parameters.
+
+        :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
+        :type spec: dictionary or ``None``
+        :param sort: a MongoDB sort parameter
+        :type sort: a list of (key, direction) tuples or ``None``
+        :param skip: number of documents to omit from start of result set
+        :type skip: integer
+        :param limit: maximum number of children to return
+        :type limit: integer
+        :rtype: a sequence of :class:`audrey.resources.object.Object` instances
+        """
         return self.get_children_and_total(spec, sort, skip, limit)['items']
 
     def get_child(self, spec=None, sort=None):
+        """ Return the first child matching the query parms.
+
+        :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
+        :type spec: dictionary or ``None``
+        :param sort: a MongoDB sort parameter
+        :type sort: a list of (key, direction) tuples or ``None``
+        :rtype: :class:`audrey.resources.object.Object` or ``None``
+        """
         children = self.get_children(spec, sort, skip=0, limit=1)
         if children:
             return children[0]
         return None
 
     def get_child_names_and_total(self, spec=None, sort=None, skip=0, limit=0):
+        """ Query for children and return the total number of matching children
+        and a list of the child names (or a batch of child names if the
+        ``limit`` parameter is non-zero).
+
+        :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
+        :type spec: dictionary or ``None``
+        :param sort: a MongoDB sort parameter
+        :type sort: a list of (key, direction) tuples or ``None``
+        :param skip: number of documents to omit from start of result set
+        :type skip: integer
+        :param limit: maximum number of children to return
+        :type limit: integer
+        :rtype: dictionary with the keys:
+
+                * "total" - an integer indicating the total number of children matching the query ``spec``
+                * "items" - a sequence of __name__ strings
+        """
         fields = []
         if self._NAME_FIELD != self._ID_FIELD: fields.append(self._NAME_FIELD)
         cursor = self.get_mongo_collection().find(spec=spec, fields=fields, sort=sort, skip=skip, limit=limit)
@@ -178,12 +324,30 @@ class Collection(object):
         return dict(total=total, items=items)
 
     def get_child_names(self, spec=None, sort=None, skip=0, limit=0):
+        """ Return the child names matching the query parameters.
+
+        :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
+        :type spec: dictionary or ``None``
+        :param sort: a MongoDB sort parameter
+        :type sort: a list of (key, direction) tuples or ``None``
+        :param skip: number of documents to omit from start of result set
+        :type skip: integer
+        :param limit: maximum number of children to return
+        :type limit: integer
+        :rtype: a sequence of __name__ strings
+        """
         return self.get_child_names_and_total(spec, sort, skip, limit)['items']
 
     def get_children_lazily(self, spec=None, sort=None):
-        """ Return child objects using a generator.
+        """ Return child objects matching the query parameters using a generator.
         Great when you want to iterate over a potentially large number of children
         and don't want to load them all into memory at once.
+
+        :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
+        :type spec: dictionary or ``None``
+        :param sort: a MongoDB sort parameter
+        :type sort: a list of (key, direction) tuples or ``None``
+        :rtype: a generator of :class:`audrey.resources.object.Object` instances
         """
         cursor = self.get_mongo_collection().find(spec=spec, sort=sort)
         for doc in cursor:
@@ -191,6 +355,15 @@ class Collection(object):
             yield obj
 
     def veto_add_child(self, child):
+        """ Check whether the collection will allow the given ``child``
+        to be added.
+        If there is some objection, return a string describing the objection.
+        Else return ``None`` to indicate the child is OK.
+
+        :param child: a child to be added to this collection
+        :type child: :class:`audrey.resources.object.Object`
+        :rtype: string or ``None``
+        """
         type_ok = False
         for cls in self.get_object_classes():
             if isinstance(child, cls):
@@ -205,9 +378,16 @@ class Collection(object):
             collection_type = str(self.__class__)
         return "Cannot add %s to %s." % (child_type, collection_type)
 
-    # Note that the add_child() method calls the child's save() method,
-    # persisting it in Mongo (and indexing in Elastic).
     def add_child(self, child, validate_schema=True):
+        """ Add a child object to this collection.
+        Note that this will ultimately call the child's :meth:`audrey.resources.object.Object.save` method, persisting it in Mongo (and indexing in Elastic).
+        If ``validate_schema`` is ``True``, a :class:`colander.Invalid` exception may be raised if schema validation fails.
+
+        :param child: a child to be added to this collection
+        :type child: :class:`audrey.resources.object.Object`
+        :param validate_schema: Should we validate the schema before adding the child?
+        :type validate_schema: boolean
+        """
         error = self.veto_add_child(child)
         if error: raise Veto(error)
         child.__parent__ = self
@@ -217,11 +397,21 @@ class Collection(object):
             child.__name__ = str(child._id)
 
     def delete_child(self, child_obj):
+        """ Remove a child object from this collection.
+
+        :param child: a child to be added to this collection
+        :type child: :class:`audrey.resources.object.Object`
+        """
         child_obj._pre_delete()
         self.get_mongo_collection().remove(dict(_id=child_obj._id), safe=True)
 
     def delete_child_by_name(self, name):
-        # Returns the number of children deleted (0 or 1).
+        """ Remove a child object (identified by the given ``name``) from this collection.
+
+        :param name: name of the child to remove
+        :type name: string
+        :rtype: integer indicating number of children removed.  Should be 1 normally, but may be 0 if no child was found with the given ``name``.
+        """
         child = self.get_child_by_name(name)
         if child:
             self.delete_child(child)
@@ -230,7 +420,12 @@ class Collection(object):
             return 0
 
     def delete_child_by_id(self, id):
-        # Returns the number of children deleted (0 or 1).
+        """ Remove a child object (identified by the given ``id``) from this collection.
+
+        :param name: ID of the child to remove
+        :type name: :class:`bson.objectid.ObjectId`
+        :rtype: integer indicating number of children removed.  Should be 1 normally, but may be 0 if no child was found with the given ``id``.
+        """
         child = self.get_child_by_id(id)
         if child:
             self.delete_child(child)
@@ -255,6 +450,9 @@ class Collection(object):
         return count
 
 class NamingCollection(Collection):
+    """ A subclass of :class:`Collection` that allows control over the
+    ``__name__`` attribute.
+    """
 
     _collection_name = 'naming_collection'
 
@@ -282,15 +480,36 @@ class NamingCollection(Collection):
             return None
         return self.construct_child_from_mongo_doc(doc)
 
-    # If you want to restrict the format of names (legal characters, etc)
-    # override this method to return an error msg if the name doesn't 
-    # match your conventions.  Else return None.
-    # Note that this method doesn't have to (and shouldn't) test whether
-    # the name is already in use.
     def validate_name_format(self, name):
+        """ Is the given name in an acceptable format?
+        If so, return ``None``.  Otherwise return an error string
+        explaining the problem.
+
+        :param name: name of a child object
+        :type name: string
+        :rtype: string or ``None``
+
+        The default implementation of this method always returns ``None``.
+        If you want to restrict the format of names (legal characters, etc)
+        override this method to check the name and return an error if needed.
+        
+        Note that this method doesn't have to (and shouldn't) test whether
+        the name is empty or already in use.
+        """
         return None
 
     def veto_child_name(self, name, unique=True):
+        """ Check whether the collection will allow a child with the given
+        ``name`` to be added.
+        If there is some objection, return a string describing the objection.
+        Else return ``None`` to indicate the child name is OK.
+
+        :param name: name of a child object
+        :type name: string
+        :param unique: Should we check that the name is unique (not already in use)?
+        :type unique: boolean
+        :rtype: string or ``None``
+        """
         if name is not None: name = name.strip()
         if not name: return "Name may not be empty."
         err = self.validate_name_format(name)
@@ -304,7 +523,18 @@ class NamingCollection(Collection):
         return self.veto_child_name(child.__name__)
 
     def rename_child(self, name, newname, _validate=True):
-        # Returns the number of children renamed (0 or 1).
+        """ Rename a child of this collection.
+        May raise a :class:`audrey.exceptions.Veto` exception if
+        ``_validate`` is ``True`` and the ``newname`` is vetoed.
+
+        :param name: name of the child to rename
+        :type name: string
+        :param newname: new name for the child
+        :type newname: string
+        :param _validate: Should we validate the new name first?
+        :type _validate: boolean
+        :rtype: integer indicating number of children renamed.  Should be 1 normally, but may be 0 if ``newname`` == ``name``.
+        """
         if name == newname: return 0
         if _validate:
             error = self.veto_child_name(newname)
