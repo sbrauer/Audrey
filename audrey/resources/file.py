@@ -12,6 +12,10 @@ class File(object):
         self._id = _id
 
     def get_gridfs_file(self, request):
+        """ Returns an instance of :class:`gridfs.grid_file.GridOut`
+        for the GridFS file that this File object refers to by ID.
+        If no match in GridFS is found, returns ``None``.
+        """
         # Would use reify, but we need access to a request to get to gridfs.
         if hasattr(self, '_gridfs_file'):
             return self._gridfs_file
@@ -28,6 +32,10 @@ class File(object):
         return cmp(self._id, other._id)
 
     def serve(self, request):
+        """ Serve the GridFS file referred to by this object..
+        Returns a :class:`pyramid.response.Response` if a matching file was found in the GridFS.
+        Otherwise returns :class:`pyramid.httpexceptions.HTTPNotFound`.
+        """
         file = self.get_gridfs_file(request)
         if file is None:
             return HTTPNotFound("No file found for %s." % repr(self._id))

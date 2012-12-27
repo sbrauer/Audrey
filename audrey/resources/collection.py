@@ -163,6 +163,12 @@ class Collection(object):
     def get_children(self, spec=None, sort=None, skip=0, limit=0):
         return self.get_children_and_total(spec, sort, skip, limit)['items']
 
+    def get_child(self, spec=None, sort=None):
+        children = self.get_children(spec, sort, skip=0, limit=1)
+        if children:
+            return children[0]
+        return None
+
     def get_child_names_and_total(self, spec=None, sort=None, skip=0, limit=0):
         fields = []
         if self._NAME_FIELD != self._ID_FIELD: fields.append(self._NAME_FIELD)
@@ -201,11 +207,11 @@ class Collection(object):
 
     # Note that the add_child() method calls the child's save() method,
     # persisting it in Mongo (and indexing in Elastic).
-    def add_child(self, child):
+    def add_child(self, child, validate_schema=True):
         error = self.veto_add_child(child)
         if error: raise Veto(error)
         child.__parent__ = self
-        child.save()
+        child.save(validate_schema=validate_schema)
         if self._NAME_FIELD == self._ID_FIELD:
             # We assume Object.save() set the _id attribute.
             child.__name__ = str(child._id)

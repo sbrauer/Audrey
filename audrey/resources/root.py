@@ -1,6 +1,7 @@
 from bson.objectid import ObjectId
 from os.path import basename
 import pyes
+from audrey import dateutil
 from audrey import sortutil
 from collections import OrderedDict
 from audrey.resources.file import File
@@ -77,6 +78,8 @@ class Root(object):
 
     def get_object_for_collection_and_id(self, collection_name, id):
         coll = self.get_child(collection_name)
+        if coll is None:
+            return None
         return coll.get_child_by_id(id)
 
     def get_object_for_reference(self, reference):
@@ -103,10 +106,10 @@ class Root(object):
         filename = basename(filename.replace('\\', '/'))
         # FIXME: instead of trusting client's content-type, use python-magic to determine type server-side?
         mimetype = fieldstorage.headers.get('content-type')
-        return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents)
+        return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents, lastmodDate=dateutil.utcnow())
 
     # FIXME: add a method to purge orphaned files (files where parents=[])
-    # that were created more than some cutoff ago (cutoff should be
+    # that were modified more than some cutoff ago (cutoff should be
     # an argument with a sane default... like 24 hrs).
 
     def search_raw(self, query=None, doc_types=None, **query_parms):

@@ -46,13 +46,15 @@ class Reference(object):
             id = bson.objectid.ObjectId(cstruct['ObjectId'])
         except bson.errors.InvalidId, e:
             raise Invalid(node, '%r is not a valid ObjectId' % cstruct['ObjectId'])
+        serialize_id_only = False
         if self.collection is None:
             if 'collection' not in cstruct:
                 raise Invalid(node, '%r does not have a "collection" key' % cstruct)
             collection = cstruct['collection']
         else:
             collection = self.collection
-        return audrey.resources.reference.Reference(collection, id)
+            serialize_id_only = True
+        return audrey.resources.reference.Reference(collection, id, serialize_id_only=serialize_id_only)
 
     def cstruct_children(self, node, cstruct):
         return []

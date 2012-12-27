@@ -3,6 +3,7 @@ import hashlib
 from pprint import pformat
 import colander
 from bson.dbref import DBRef
+from bson.objectid import ObjectId
 from pyramid.traversal import find_root
 import pyes
 from audrey import dateutil
@@ -145,7 +146,9 @@ class Object(object):
                 ret.append(obj)
         return ret
 
-    def save(self, set_modified=True, index=True, set_etag=True):
+    def save(self, validate_schema=True, set_modified=True, index=True, set_etag=True):
+        if validate_schema:
+            self.validate_schema() # May raise a colander.Invalid exception
         if set_modified:
             self._modified = dateutil.utcnow()
             if not getattr(self, '_created', None): self._created = self._modified
@@ -174,9 +177,9 @@ class Object(object):
         ids_to_remove = old_file_ids - new_file_ids
         ids_to_add = new_file_ids - old_file_ids
         if ids_to_remove:
-            fs_files_coll.update({'_id':{'$in':list(ids_to_remove)}}, {"$pull":{"parents":dbref}}, multi=True)
+            fs_files_coll.update({'_id':{'$in':list(ids_to_remove)}}, {"$pull":{"parents":dbref}, "$set":{"lastmodDate": dateutil.utcnow()}}, multi=True)
         if ids_to_add:
-            fs_files_coll.update({'_id':{'$in':list(ids_to_add)}}, {"$addToSet":{"parents":dbref}}, multi=True)
+            fs_files_coll.update({'_id':{'$in':list(ids_to_add)}}, {"$addToSet":{"parents":dbref}, "$set":{"lastmodDate": dateutil.utcnow()}}, multi=True)
 
         if index: self.index()
 
@@ -217,7 +220,7 @@ class Object(object):
         dbref = self.get_dbref()
         root = find_root(self)
         fs_files_coll = root.get_gridfs()._GridFS__files
-        fs_files_coll.update({'parents':dbref}, {"$pull":{"parents":dbref}}, multi=True)
+        fs_files_coll.update({'parents':dbref}, {"$pull":{"parents":dbref}, "$set":{"lastmodDate": dateutil.utcnow()}}, multi=True)
 
     def index(self):
         if not self.use_elastic(): return
@@ -277,6 +280,12 @@ class Object(object):
             if val is not None:
                 return make_traversable(val, name, self)
         raise KeyError
+
+    def dereference(self, reference):
+        # Try to get the object referred to by reference (a Reference).
+        if reference is None:
+            return None
+        return reference.dereference(self)
 
 class NamedObject(Object):
 
@@ -387,8 +396,7 @@ def _apply_schema_to_values(node, value):
         for cnode in node.children:
             name = cnode.name
             val = value.get(name, None)
-            if val:
-                ret[name] = _apply_schema_to_values(cnode, val)
+            ret[name] = _apply_schema_to_values(cnode, val)
         return ret
     elif type(node.typ) == colander.Sequence:
         ret = []
@@ -405,9 +413,20 @@ def _apply_schema_to_values(node, value):
     # Convert DBRefs and base ObjectIds to Audrey's Reference type.
     elif type(node.typ) == audrey.types.Reference:
         if node.typ.collection:
-            # Assume value is an ObjectId
-            return Reference(node.typ.collection, value, serialize_id_only=True)
+            id = None
+            if type(value) is ObjectId:
+                id = value
+            elif type(value) is DBRef:
+                if value.collection != note.type.collection:
+                    raise ValueError("Expected a reference to the \"%s\" collection but found %r instead." % (node.typ.collection, value))
+                id = value.id
+            else:
+                raise ValueError("Expected a reference to the \"%s\" collection but found %r instead." % (node.typ.collection, value))
+
+            return Reference(node.typ.collection, id, serialize_id_only=True)
         else:
-            # Assume value is a DBRef
-            return Reference(value.collection, value.id)
+            if type(value) is DBRef:
+                return Reference(value.collection, value.id)
+            else:
+                raise ValueError("Expected a reference but found %r instead." % value)
     return value

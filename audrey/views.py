@@ -153,7 +153,8 @@ def object_put(context, request):
         request.response.status_int = 400 # Bad Request
         return dict(error='Validation failed.', errors=errors)
     context.set_schema_values(**deserialized)
-    context.save()
+    # We just validated the schema, so no need to do it again.
+    context.save(validate_schema=False)
     request.response.status_int = 204 # No Content
     request.response.content_location = request.resource_url(context)
 
@@ -342,7 +343,8 @@ def collection_post(context, request, __name__=None):
     obj = object_class(request, **deserialized)
     if __name__: obj.__name__ = __name__
     try:
-        context.add_child(obj)
+        # We just validated the schema, so no need to do it again.
+        context.add_child(obj, validate_schema=False)
     except Veto, e:
         request.response.status_int = 400 # Bad Request
         return dict(error=str(e))

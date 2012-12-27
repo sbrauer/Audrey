@@ -1,4 +1,5 @@
 from bson.dbref import DBRef
+from pyramid.traversal import find_root
 
 class Reference(object):
     """ Represents a reference to a document in MongoDB.
@@ -23,3 +24,18 @@ class Reference(object):
             return self.id
         else:
             return DBRef(self.collection, self.id)
+
+    def dereference(self, context):
+        """ Return the :class:`Object` this Reference refers to.
+        ``context`` can be any resource and is simply used to find the root
+        (which in turn is used to resolve the reference).
+        """
+        root = find_root(context)
+        return root.get_object_for_reference(self)
+
+class IdReference(Reference):
+    """ Just a little syntactic sugar around :class:`Reference`
+    with ``serialize_id_only``=``True``.
+    """
+    def __init__(self, collection, id):
+        Reference.__init__(self, collection, id, serialize_id_only=True)
