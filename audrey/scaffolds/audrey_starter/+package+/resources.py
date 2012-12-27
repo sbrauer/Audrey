@@ -1,6 +1,9 @@
 import audrey
 import colander
 
+# The following are just some example resource classes to get
+# you started using Audrey.
+
 class Person(audrey.resources.object.Object):
     _object_type = "person"
 
