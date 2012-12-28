@@ -25,10 +25,10 @@ Let's take a look around in a pshell session::
 
     >>> root
     <myproject.resources.Root object at 0x9d35a6c>
-    >>> root.get_child_names()
+    >>> root.get_collection_names()
     ['people', 'posts']
 
-OK. So we have a Root object with children named "people" and "posts".
+OK. So we have a Root object with two collections named "people" and "posts".
 Let's check out one of those::
 
     >>> people = root['people']
