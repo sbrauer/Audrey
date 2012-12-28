@@ -1,7 +1,5 @@
-.. _narrative:
-
-Narrative Documentation
-=======================
+Overview
+========
 
 Let's say you just installed Audrey and used its starter scaffold to create
 a new project (as described in :ref:`creating-new-project`).  You'd have two
