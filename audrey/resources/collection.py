@@ -463,12 +463,14 @@ class NamingCollection(Collection):
     @classmethod
     def get_mongo_indexes(cls):
         indexes = Collection.get_mongo_indexes()
+        # Add a unique index on "__name__"
         indexes.append(([(cls._NAME_FIELD, 1)], dict(unique=True)))
         return indexes
 
     @classmethod
     def get_elastic_mapping(cls):
         mapping = Collection.get_elastic_mapping()
+        # Add "__name__", unanalyzed and not in "_all"
         mapping[cls._NAME_FIELD] = dict(type='string', include_in_all=False, index='not_analyzed')
         return mapping
 
