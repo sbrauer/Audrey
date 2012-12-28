@@ -30,7 +30,7 @@ that handles the boring, repetitve yet error-prone details of interacting
 with MongoDB and ElasticSearch, validating your schemas, etc.
 
 .. note::
-   The base ``Object`` and ``Collection`` classes don't allow explicit control of the ``__name__`` attribute used for traversal.  For cases where you need such control, use the ``NamedObject`` and ``NamingCollection`` classes instead.
+   The base ``Object`` and ``Collection`` classes don't allow explicit control of the ``__name__`` attribute used for traversal.  For cases where you need such control, use the :class:`audrey.resources.object.NamedObject` and :class:`audrey.resources.collection.NamingCollection` classes instead.
 
 After you create a new project using the ``audrey`` scaffold (as described
 in :ref:`creating-new-project`), you'll have a couple of example
