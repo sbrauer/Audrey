@@ -30,11 +30,11 @@ Prerequisites
    
    If you just want to quickly try out Audrey, here's a recipe for running an ElasticSearch server in the foreground under your non-root user account::
 
-        wget https://github.com/downloads/elasticsearch/elasticsearch/elasticsearch-0.19.4.tar.gz
-        tar xfz elasticsearch-0.19.4.tar.gz
-        ln -s elasticsearch-0.19.4 elasticsearch
+        wget http://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-0.20.2.tar.gz
+        tar xfz elasticsearch-0.20.2.tar.gz 
+        ln -s elasticsearch-0.20.2 elasticsearch
         cd elasticsearch
-        bin/plugin -install elasticsearch/elasticsearch-transport-thrift/1.2.0
+        bin/plugin -install elasticsearch/elasticsearch-transport-thrift/1.4.0
         bin/elasticsearch -f
 
 Setup Audrey
