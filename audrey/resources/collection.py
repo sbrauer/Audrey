@@ -435,15 +435,21 @@ class Collection(object):
         else:
             return 0
 
-    def _clear_elastic(self):
+    def clear_elastic(self):
         """ Delete all documents from Elastic for this Collection's doctype.
         """
         self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), None)
 
-    # Returns the number of objects indexed.
-    def _reindex_all(self, clear=False):
+    def reindex_all(self, clear=False):
+        """ Reindex all this collection's objects in Elastic.
+        Returns a count of the objects reindexed.
+
+        :param clear: Should we clear the index first?
+        :type clear: boolean
+        :rtype: integer
+        """
         if clear:
-            self._clear_elastic()
+            self.clear_elastic()
         count = 0
         if self._use_elastic:
             for child in self.get_children_lazily():

@@ -327,17 +327,21 @@ class Root(object):
         method = highlight_fields and self.get_objects_and_highlights_for_query or self.get_objects_for_query
         return method(query=search, doc_types=collection_names, sort=elastic_sort)
 
-    def _clear_elastic(self):
+    def clear_elastic(self):
         """ Delete all documents from Elastic for all Collections.
         """
         for coll in self.get_collections():
-            coll._clear_elastic()
+            coll.clear_elastic()
 
-    # Returns the number of objects indexed.
-    def _reindex_all(self, clear=False):
+    def reindex_all(self, clear=False):
         """ Reindex all documents in Elastic for all Collections.
+        Returns a count of the objects reindexed.
+
+        :param clear: Should we clear the index first?
+        :type clear: boolean
+        :rtype: integer
         """
         count = 0
         for coll in self.get_collections():
-            count += coll._reindex_all(clear=clear)
+            count += coll.reindex_all(clear=clear)
         return count
