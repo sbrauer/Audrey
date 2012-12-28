@@ -193,7 +193,7 @@ def root_get(context, request):
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         curie = get_curie(context, request),
-        item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_children()],
+        item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_collections()],
         search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&sort}{&collection*}", templated=True),
     )
     ret['_links']['audrey:upload'] = dict(href=request.resource_url(context, '@@upload'))

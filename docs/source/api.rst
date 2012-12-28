@@ -1,10 +1,6 @@
 API
 ===
 
-.. warning::
-   This section is incomplete and poorly formatted.
-   It will improve as I continue to work on the docstrings in the source.
-
 audrey.resources
 ----------------
 
@@ -22,6 +18,10 @@ root
 ++++
 .. automodule:: audrey.resources.root
     :members:
+
+.. warning::
+   The following sections are incomplete and poorly formatted.
+   Should improve as I continue to work on the docstrings in the source.
 
 file
 ++++

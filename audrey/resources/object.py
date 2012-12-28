@@ -31,9 +31,17 @@ class Object(object):
     override :meth:`get_nonschema_values` and :meth:`set_nonschema_values`.
     When overriding, be sure to call the superclass methods since the base
     ``Object`` type uses these methods for metadata (``_id``, ``_created``, etc).
-    """
 
+    If the type is to be part of a non-homogenous collection, override
+    the class attribute :attr:`_save_object_type_to_mongo` to ``True``.
+    This is defaulted to ``False`` under the assumption that homogenous
+    collections are the norm, in which case storing the same ``_object_type``
+    in every document is redundant.
+    """
     _object_type = "object"
+
+    _save_object_type_to_mongo = False
+
     @classmethod
     def get_class_schema(cls, request=None):
         """
@@ -216,6 +224,8 @@ class Object(object):
         doc = _mongify_values(self.get_all_values())
         if doc['_id'] is None:
             del doc['_id']
+        if self._save_object_type_to_mongo:
+            doc['_object_type'] = self._object_type
         return doc
 
     def __str__(self):

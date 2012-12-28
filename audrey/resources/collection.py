@@ -169,6 +169,8 @@ class Collection(object):
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
         """
         classes = self.get_object_classes()
+        if len(classes) == 0:
+            return None
         if len(classes) == 1:
             # A homogenous collection (only one Object class).
             return classes[0]

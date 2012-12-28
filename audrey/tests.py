@@ -100,7 +100,7 @@ def _getExampleCollectionClass():
     from audrey import resources
     class ExampleCollection(resources.collection.Collection):
         _collection_name = TYPE_NAME
-        _object_classes = (_getExampleObjectClass(), _getExampleObjectClassWithFiles(), )
+        _object_classes = (_getExampleObjectClass(), )
     classes[TYPE_NAME] = ExampleCollection
     return ExampleCollection
 
@@ -204,12 +204,12 @@ class RootTests(unittest.TestCase):
     def test_child_getters(self):
         request = testing.DummyRequest()
         root = _makeOneRoot(request)
-        self.assertEqual(root.get_child_names(), ['example_collection', 'example_naming_collection'])
+        self.assertEqual(root.get_collection_names(), ['example_collection', 'example_naming_collection'])
         with self.assertRaises(KeyError):
             root['foo']
         self.assertEqual(root['example_collection'].__class__, _getExampleCollectionClass())
         self.assertEqual(root['example_naming_collection'].__class__, _getExampleNamingCollectionClass())
-        self.assertEqual([x.__class__ for x in root.get_children()], [_getExampleCollectionClass(), _getExampleNamingCollectionClass()])
+        self.assertEqual([x.__class__ for x in root.get_collections()], [_getExampleCollectionClass(), _getExampleNamingCollectionClass()])
 
 class CollectionTests(unittest.TestCase):
 

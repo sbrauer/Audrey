@@ -8,17 +8,24 @@ from audrey.resources.file import File
 
 class Root(object):
     """
+    The root of the application (starting point for traversal) and container
+    of Collections.
+
     Developers extending Audrey should create their own subclass of Root
-    that overrides either the _collection_classes attribute or
-    the get_collection_classes() class method.
-    Either way, get_collection_classes() should return 
-    a sequence of Collection classes.
+    that:
+
+    * overrides either the :attr:`_collection_classes` class attribute or
+      the :meth:`get_collection_classes` class method.  Either way, :meth:`get_collection_classes` should return a sequence of :class:`audrey.resources.collection.Collection` classes.
     """
 
     _collection_classes = ()
 
     @classmethod
     def get_collection_classes(cls):
+        """ Returns a sequence of the Collection classes in this app.
+
+        :rtype: sequence of :class:`audrey.resources.collection.Collection` classes
+        """
         return cls._collection_classes
 
     def __init__(self, request):
@@ -32,74 +39,158 @@ class Root(object):
                 raise ValueError("Non-unique collection name: %s" % coll_name)
             self._collection_classes_by_name[coll_name] = coll_cls
 
-    def get_child(self, name):
-        child = None
+    def get_collection(self, name):
+        """ Return the Collection for the given ``name``.
+        The returned Collection will have the Root object
+        as its traversal ``__parent__``.
+
+        :param name: a collection name
+        :type name: string
+        :rtype: :class:`audrey.resources.collection.Collection` class or ``None``
+        """
+        coll = None
         if name in self._collection_classes_by_name:
-            child = self._collection_classes_by_name[name](self.request)
-            child.__name__ = name
-            child.__parent__ = self
-        return child
+            coll = self._collection_classes_by_name[name](self.request)
+            coll.__name__ = name
+            coll.__parent__ = self
+        return coll
 
     def __getitem__(self, name):
-        child = self.get_child(name)
-        if child is None:
+        ret = self.get_collection(name)
+        if ret is None:
             raise KeyError
-        return child
+        return ret
 
-    def get_child_names(self):
+    def get_collection_names(self):
+        """ Get the names of the collections.
+
+        :rtype: list of strings
+        """
         return self._collection_classes_by_name.keys()
 
-    def get_children(self):
+    def get_collections(self):
+        """ Get all the collections.
+
+        :rtype: list of :class:`audrey.resources.collection.Collection` instances
+        """
         result = []
-        for name in self.get_child_names():
-            result.append(self[name])
+        for name in self.get_collection_names():
+            result.append(self.get_collection(name))
         return result
 
     def get_mongo_connection(self):
+        """ Return a connection to the MongoDB server.
+
+        :rtype: :class:`pymongo.connection.Connection`
+        """
         return self.request.registry.settings['mongo_conn']
 
     def get_mongo_db_name(self):
+        """ Return the name of the MongoDB database.
+
+        :rtype: string
+        """
         return self.request.registry.settings['mongo_name']
 
     def get_mongo_db(self):
+        """ Return the MongoDB database for the app.
+
+        :rtype: :class:`pymongo.database.Database`
+        """
         return self.request.registry.settings['mongo_db']
 
     def get_mongo_collection(self, coll_name):
+        """ Return the collection identified by ``coll_name``.
+
+        :rtype: :class:`pymongo.collection.Collection`
+        """
         return self.get_mongo_db()[coll_name]
 
     def get_gridfs(self):
+        """ Return the MongoDB GridFS for the app.
+
+        :rtype: :class:`gridfs.GridFS`
+        """
         return self.request.registry.settings['gridfs']
     
     def get_elastic_connection(self):
+        """ Return a connection to the ElasticSearch server.
+
+        :rtype: :class:`pyes.es.ES`
+        """
         return self.request.registry.settings['elastic_conn']
     
     def get_elastic_index_name(self):
+        """ Return the name of the ElasticSearch index.
+
+        Note that all objects in an Audrey app will use the same Elastic
+        index (the index name is analogous to a database name).
+
+        :rtype: string
+        """
         return self.request.registry.settings['elastic_name']
 
     def get_object_for_collection_and_id(self, collection_name, id):
-        coll = self.get_child(collection_name)
+        """ Return the Object identified by the given ``collection_name``
+        and ``id``.
+
+        :param collection_name: name of a collection
+        :type collection_name: string
+        :param id: an ObjectId
+        :type id: :class:`bson.objectid.ObjectId`
+        :rtype: :class:`audrey.resources.object.Object` class or ``None``
+        """
+        coll = self.get_collection(collection_name)
         if coll is None:
             return None
         return coll.get_child_by_id(id)
 
     def get_object_for_reference(self, reference):
+        """ Return the Object identified by the given ``reference``.
+
+        :param reference: a reference
+        :type reference: :class:`audrey.resources.reference.Reference`
+        :rtype: :class:`audrey.resources.object.Object` class or ``None``
+        """
+        if reference is None:
+            return None
         return self.get_object_for_collection_and_id(reference.collection, reference.id)
 
     def serve_gridfs_file_for_id(self, id):
+        """ Attempt to serve the GridFS file referred to by ``id``.
+
+        :param id: an ObjectId
+        :type id: :class:`bson.objectid.ObjectId`
+        :rtype: :class:`pyramid.response.Response` if a matching file was found in the GridFS, otherwise :class:`pyramid.httpexceptions.HTTPNotFound`
+        """
         return File(id).serve(self.request)
 
     def create_gridfs_file(self, file, filename, mimetype, parents=None):
-        # Returns an audrey.resources.file.File for the new GridFS file.
+        """ Create a new GridFS file.
+
+        :param file: file content/data
+        :type file: a file-like object (providing a read() method) or a string
+        :param filename: a filename
+        :type filename: string
+        :param mimetype: a mime-type
+        :type mimetype: string
+        :param parents: list of references to the Objects that "own" the file
+        :type parents: list of :class:`bson.dbref.DBRef` instances, or ``None``
+        :rtype: :class:`audrey.resources.file.File`
+        """
         if parents is None: parents = []
         # FIXME: if image, get dimensions (via PIL?) and store as two custom attributes (width and height)
         return File(self.get_gridfs().put(file, filename=filename, contentType=mimetype, parents=parents))
 
     def create_gridfs_file_from_fieldstorage(self, fieldstorage, parents=None):
-        # The ``fieldstorage`` parm should be an instance of cgi.FieldStorage
-        # (such as found in WebOb request.POST).
-        # ``parents`` should be a list of DBRef objects that "own" the file.
-        # ``parents`` may be an empty list or None.
-        # Returns an audrey.resources.file.File for the new GridFS file.
+        """ Create a new GridFS file from the given ``fieldstorage``.
+
+        :param fieldstorage: a FieldStorage (such as found in WebOb request.POST for each file upload)
+        :type fieldstorage: :class:`cgi.FieldStorage`
+        :param parents: list of references to the Objects that "own" the file
+        :type parents: list of :class:`bson.dbref.DBRef` instances, or ``None``
+        :rtype: :class:`audrey.resources.file.File`
+        """
         filename = fieldstorage.filename
         # IE likes to include the full path of uploaded files ("c:\foo\bar.gif")
         if(len(filename) > 1 and filename[1] == ':'): filename = filename[2:]  # remove drive prefix
@@ -112,6 +203,7 @@ class Root(object):
     # that were modified more than some cutoff ago (cutoff should be
     # an argument with a sane default... like 24 hrs).
 
+    # FIXME: continue doc string cleanup here...
     def search_raw(self, query=None, doc_types=None, **query_parms):
         """ A thin wrapper around pyes.ES.search_raw().
         query must be a Search object, a Query object, or a custom dictionary of search parameters using the query DSL to be passed directly.
@@ -211,7 +303,7 @@ class Root(object):
     def _clear_elastic(self):
         """ Delete all documents from Elastic for all Collections.
         """
-        for coll in self.get_children():
+        for coll in self.get_collections():
             coll._clear_elastic()
 
     # Returns the number of objects indexed.
@@ -219,6 +311,6 @@ class Root(object):
         """ Reindex all documents in Elastic for all Collections.
         """
         count = 0
-        for coll in self.get_children():
+        for coll in self.get_collections():
             count += coll._reindex_all(clear=clear)
         return count

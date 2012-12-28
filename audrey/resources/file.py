@@ -32,7 +32,7 @@ class File(object):
         return cmp(self._id, other._id)
 
     def serve(self, request):
-        """ Serve the GridFS file referred to by this object..
+        """ Serve the GridFS file referred to by this object.
         Returns a :class:`pyramid.response.Response` if a matching file was found in the GridFS.
         Otherwise returns :class:`pyramid.httpexceptions.HTTPNotFound`.
         """
