@@ -203,27 +203,35 @@ class Root(object):
     # that were modified more than some cutoff ago (cutoff should be
     # an argument with a sane default... like 24 hrs).
 
-    # FIXME: continue doc string cleanup here...
     def search_raw(self, query=None, doc_types=None, **query_parms):
-        """ A thin wrapper around pyes.ES.search_raw().
-        query must be a Search object, a Query object, or a custom dictionary of search parameters using the query DSL to be passed directly.
+        """ A thin wrapper around :meth:`pyes.ES.search_raw`
 
-        Returns a dictionary like pyes.ES.search_raw().
-        Keys are [u'hits', u'_shards', u'took', u'timed_out'].
-        result['hits'] has the keys: [u'hits', u'total', u'max_score']
+        :param query: a :class:`pyes.query.Search` or a :class:`pyes.query.Query` or a custom dictionary of search parameters using the query DSL to be passed directly
+        :param doc_types: which doc types to search
+        :type doc_types: list of strings or ``None``
+        :param query_parms: extra kwargs
+        :rtype: dictionary
+
+        The returned dictionary is like that returned by :meth:`pyes.ES.search_raw`
+
+        Keys are ['hits', '_shards', 'took', 'timed_out'].
         
-        result['took'] -> search time in ms
-        result['hits']['total'] -> total number of hits
-        result['hits']['hits'] -> list of hit dictionaries, each with the keys: [u'_score', u'_type', u'_id', u'_source', u'_index', u'highlight']
-        Although if the fields kwarg is a list of field names (instead 
-        of the default value None), instead of a '_source' key, each hit will
+        result['took'] is the search time in ms
+
+        result['hits'] has the keys: ['hits', 'total', 'max_score']
+
+        result['hits']['total'] is total number of hits
+
+        result['hits']['hits'] is a list of hit dictionaries, each with the keys: ['_score', '_type', '_id', '_source', '_index', 'highlight']
+        Although if the ``fields`` kwarg is a list of field names (instead 
+        of the default value ``None``), instead of a '_source' key, each hit will
         have a '_fields' key whose value is a dictionary of the requested fields.
         
-        The "highlight" key will only be present if highlight_fields were used
-        and there was a match in at least one of those fields.
+        The "highlight" key will only be present if the query has highlight
+        fields and there was a match in at least one of those fields.
         In that case, the value of "highlight" will be dictionary of strings.
         Each dictionary key is a field name and each string is an HTML fragment
-        where the matched term is in an <em> tag.
+        where the matched term is in an ``<em>`` tag.
         """
         # Normalize query_parms by removing items where the value is None.
         keys = query_parms.keys()
@@ -234,11 +242,12 @@ class Root(object):
         return self.get_elastic_connection().search_raw(query or {}, indices=(self.get_elastic_index_name(),), doc_types=doc_types, **query_parms)
 
     def get_objects_and_highlights_for_raw_search_results(self, results):
-        """ Given a pyes result dictionary (such as returned by search_raw(),
-        return a dictionary with the keys:
-        "total": total number of matching hits
-        "took": search time in ms
-        "items": a list of dictionaries, each with the keys "object" and highlight"
+        """ Given a ``pyes`` result dictionary (such as returned by
+        :meth:`search_raw`) return a new dictionary with the keys:
+
+        * "total": total number of matching hits
+        * "took": search time in ms
+        * "items": a list of dictionaries, each with the keys "object" and highlight"
         """
         items = []
         for hit in results['hits']['hits']:
@@ -254,35 +263,53 @@ class Root(object):
         )
 
     def get_objects_for_raw_search_results(self, results):
-        """ Given a pyes result dictionary (such as returned by search_raw(),
-        return a dictionary with the keys:
-        "total": total number of matching hits
-        "took": search time in ms
-        "items": a list of Objects
+        """ Given a ``pyes`` result dictionary (such as returned by
+        :meth:`search_raw`) return a new dictionary with the keys:
+
+        * "total": total number of matching hits
+        * "took": search time in ms
+        * "items": a list of :class:`audrey.resources.object.Object` instances
         """
         ret = self.get_objects_and_highlights_for_raw_search_results(results)
         ret['items'] = [item['object'] for item in ret['items']]
         return ret
 
     def get_objects_and_highlights_for_query(self, query=None, doc_types=None, **query_parms):
+        """ A convenience method that returns the result of calling 
+        :meth:`get_objects_and_highlights_for_raw_search_results`
+        on :meth:`search_raw` with the given parameters.
+        """
         return self.get_objects_and_highlights_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
 
     def get_objects_for_query(self, query=None, doc_types=None, **query_parms):
+        """ A convenience method that returns the result of calling 
+        :meth:`get_objects_for_raw_search_results`
+        on :meth:`search_raw` with the given parameters.
+        """
         return self.get_objects_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
 
     def basic_fulltext_search(self, search_string='', collection_names=None, skip=0, limit=10, sort=None, highlight_fields=None):
         """ A functional basic full text search.
-        Also a good example of using Root's other search methods.
+        Also a good example of using the other search methods.
 
-        All parms are optional...
-        query - query string that may contain wildcards or boolean operators
-        collection_names - use to restrict search to specific Collections
-        skip and limit - used for batching/pagination
-        sort - a sortutil.SortSpec string
-        highlight_fields - a list of Elastic mapping fields in which to highlight search_string matches; example: ['text']
+        All parms are optional; calling the method without specifying any parms
+        is querying for anything and everything.
 
-        Returns a dictionary like get_objects_and_highlights_for_raw_search_results when highlight_fields.
-        Otherwise returns a dictionary like get_objects_for_raw_search_results.
+        :param query: a query string that may contain wildcards or boolean operators
+        :type query: string
+        :param collection_names: restrict search to specific Collections
+        :type collection_names: list of strings, or ``None``
+        :param skip: number of results to omit from start of result set
+        :type skip: integer
+        :param limit: maximum number of results to return
+        :type limit: integer
+        :param sort: a :class:`audrey.sortutil.SortSpec` string
+        :type sort: string or ``None``
+        :param highlight_fields: a list of Elastic mapping fields in which to highlight ``search_string`` matches. For example, to highlight matches in Audrey's default full "text" field: ``['text']``
+        :type highlight_fields: list of strings, or ``None``
+        :rtype: dictionary
+
+        Returns a dictionary like :meth:`get_objects_and_highlights_for_raw_search_results` when ``highlight_fields``.  Otherwise returns a dictionary like :meth:`get_objects_for_raw_search_results`.
         """
         search_string = search_string.strip()
         if search_string:
