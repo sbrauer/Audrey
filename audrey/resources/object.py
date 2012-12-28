@@ -70,7 +70,7 @@ class Object(object):
 
         :param request: :class:`pyramid.request.Request` instance for the
         current request
-        :param kwargs: If present, ``kawrgs`` should be a dictionary of
+        :param kwargs: If present, ``kwargs`` should be a dictionary of
         attribute names and values to set on the new instance.
         """
         self.request = request
@@ -134,7 +134,7 @@ class Object(object):
 
     def set_schema_values(self, **kwargs):
         """ Set attribute values for the top-level schema nodes
-        present in ``kawrgs``.
+        present in ``kwargs``.
         """
         for name in self.get_schema_names():
             if kwargs.has_key(name):

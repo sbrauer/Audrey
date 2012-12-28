@@ -5,7 +5,7 @@ import string
 
 class Collection(object):
     """
-    A Collection of Objects.  Corresponds to a MongoDB Collection (and 
+    A set of Objects.  Corresponds to a MongoDB Collection (and 
     an ElasticSearch "type").
 
     Developers extending Audrey should create their own subclass(es) of 
@@ -493,7 +493,7 @@ class NamingCollection(Collection):
         If you want to restrict the format of names (legal characters, etc)
         override this method to check the name and return an error if needed.
         
-        Note that this method doesn't have to (and shouldn't) test whether
+        Note that this method doesn't have to test whether
         the name is empty or already in use.
         """
         return None
@@ -522,21 +522,21 @@ class NamingCollection(Collection):
         if err: return err
         return self.veto_child_name(child.__name__)
 
-    def rename_child(self, name, newname, _validate=True):
+    def rename_child(self, name, newname, validate=True):
         """ Rename a child of this collection.
         May raise a :class:`audrey.exceptions.Veto` exception if
-        ``_validate`` is ``True`` and the ``newname`` is vetoed.
+        ``validate`` is ``True`` and the ``newname`` is vetoed.
 
         :param name: name of the child to rename
         :type name: string
         :param newname: new name for the child
         :type newname: string
-        :param _validate: Should we validate the new name first?
-        :type _validate: boolean
+        :param validate: Should we validate the new name first?
+        :type validate: boolean
         :rtype: integer indicating number of children renamed.  Should be 1 normally, but may be 0 if ``newname`` == ``name``.
         """
         if name == newname: return 0
-        if _validate:
+        if validate:
             error = self.veto_child_name(newname)
             if error: raise Veto(error)
         child = self.get_child_by_name(name)

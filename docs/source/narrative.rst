@@ -1,7 +1,7 @@
-.. _tour:
+.. _narrative:
 
-Quick Tour
-==========
+Narrative Documentation
+=======================
 
 Let's say you just installed Audrey and used its starter scaffold to create
 a new project (as described in :ref:`creating-new-project`).  You'd have two
@@ -409,7 +409,7 @@ Note that the "photo" is no longer null and the list of "file" links now
 contains one item with type="image/jpeg" and name="50d8a64bbf90af0d7169df5e".
 A client could match up that name with the value of the photo FileId.
 
-As our final stop before ending this tour, let's try out the search api.
+As our final stop before ending this introduction, let's try out the search api.
 We'll do a search for "dale"::
 
     $ curl http://127.0.0.1:6543/@@search?q=dale | python -mjson.tool
@@ -439,4 +439,4 @@ We'll do a search for "dale"::
 
 The search found Dale's ``Person`` object.  As you might guess, if there were lots of results they would be batched with "next" and "prev" links.
 
-Well that wraps up the "quick tour".  It didn't cover all of Audrey's functionality and nuances, but hopefully it was a good introduction.
+Well that wraps up this introduction.  It didn't cover all of Audrey's functionality and nuances, but hopefully it provides an adequate overview.

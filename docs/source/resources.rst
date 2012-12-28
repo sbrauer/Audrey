@@ -25,22 +25,24 @@ As the application developer, you define your Object classes  (using colander
 to define the schema for each class), your Collection classes
 (specifying which Object classes can be created in each Collection), 
 and a Root class (specifying the list of Collections).
-Audrey takes care of the details of validating your schemas and interacting
-with MongoDB and ElasticSearch.
+Audrey then provides what I hope is a comfortable and Pythonic interface
+that handles the boring, repetitve yet error-prone details of interacting 
+with MongoDB and ElasticSearch, validating your schemas, etc.
 
 .. note::
    The base ``Object`` and ``Collection`` classes don't allow explicit control of the ``__name__`` attribute used for traversal.  For cases where you need such control, use the ``NamedObject`` and ``NamingCollection`` classes instead.
 
-After you create a new project using the ``audrey`` scaffold, it will 
-define a couple of example Objects and Collections for you in the file
-``resources.py`` inside your package directory (which will be the
-same as your project name, but in lowercase).
-You'll of course want to replace these examples with your own Objects and
-Collections, and may even want to split the single file up into a module.
+After you create a new project using the ``audrey`` scaffold (as described
+in :ref:`creating-new-project`), you'll have a couple of example
+Objects and Collections defined in the file ``resources.py`` inside
+your package directory (which will be the same name as your project name,
+but in lowercase).  You'll of course want to replace these examples with
+your own Objects and Collections, and may even want to split the single
+file up into a module.
 
-First things first though; let's take a close look at the example
-``resources.py`` file and see how it subclasses the base Audrey classes.
-The file should have content similar to the following:
+Let's take a close look at the example ``resources.py`` file and see
+how it subclasses the base Audrey classes.  The file should have content
+similar to the following:
 
 .. literalinclude:: resources.py
    :linenos:
@@ -94,6 +96,8 @@ Lines 58-59 define a ``Root`` class that subclasses :class:`audrey.resources.roo
 
 Lines 61-62 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
 
-If you haven't read the :ref:`tour` section yet, you may want to now.
+If you haven't read the :ref:`narrative` section yet, you may want to now.
 It demonstrates some of the functionality Audrey provides using the 
 ``Person`` and ``People`` classes defined here as examples.
+
+You may also want to explore the :doc:`api` documentation to discover further functionality and details.
