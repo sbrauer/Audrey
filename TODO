@@ -30,6 +30,20 @@ Alpha
 Maybe?
 ======
 
+[ ] Rethink use of request throughout resource classes... can we ditch
+    it?  grep request resources/*.py
+    [ ] Change root_factory and Root so that request.registry.settings is
+        passed to Root intead of request (for access to Mongo, Elastic, etc).
+    [ ] Change Object.get_class_schema() such that it doesn't take a request
+        arg and instead uses a schema defined by a class attribute.
+        Change Object.get_schema() such that request is required, but the
+        default implementation just returns get_class_schema().  Subclasses
+        that need to customize the schema based on request can do so in a deepcopy.
+    [ ] change File such that it's passed the gridfs instead of request
+    [ ] update tests
+    [ ] update scaffold
+    [ ] update docs!
+
 [ ] Index files in Elastic using its support for attachments
 
 [ ] In REST views, treat files as separate resources.
