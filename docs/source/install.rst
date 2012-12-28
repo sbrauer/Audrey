@@ -50,14 +50,16 @@ Setup Audrey
    Then::
 
        cd Audrey
-       python setup.py develop
+       python setup.py install
+
+   Wait patiently for all of the dependencies to download and install.
 
    [FIXME: Upload Audrey to PyPI so you can just pip install it.]
 
 .. note::
    At the time of this writing, the current release of pyramid_zcml (0.9.2)
    has a minor bug that prevents Audrey from properly handling XHR requests.
-   Until the 0.9.3 release you'll have to make a tiny tweak to your copy
+   Until the 0.9.3 release you'll have to make a tiny tweak to your copy of
    pyramid_zcml's __init__.py file.  Edit the file ``myenv/lib/python2.7/site-packages/pyramid_zcml-0.9.2-py2.7.egg/pyramid_zcml/__init__.py`` and change the two lines (166 and 248) that say::
 
       xhr=False,

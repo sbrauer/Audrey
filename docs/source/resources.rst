@@ -38,7 +38,7 @@ Objects and Collections defined in the file ``resources.py`` inside
 your package directory (which will be the same name as your project name,
 but in lowercase).  You'll of course want to replace these examples with
 your own Objects and Collections, and may even want to split the single
-file up into a module.
+file up into a ``resources`` sub-package.
 
 Let's take a close look at the example ``resources.py`` file and see
 how it subclasses the base Audrey classes.  The file should have content
