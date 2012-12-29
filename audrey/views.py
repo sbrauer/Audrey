@@ -156,7 +156,7 @@ def object_put(context, request):
     # We just validated the schema, so no need to do it again.
     context.save(validate_schema=False)
     request.response.status_int = 204 # No Content
-    request.response.content_location = request.resource_url(context)
+    request.response.location = request.resource_url(context)
 
 def object_delete(context, request):
     # Delete an existing object.
@@ -185,7 +185,6 @@ def collection_rename(context, request):
         return dict(error=str(e))
     obj = context[to_name]
     request.response.status_int = 204 # No Content
-    request.response.content_location = request.resource_url(obj)
     request.response.location = request.resource_url(obj)
 
 def root_get(context, request):
@@ -313,7 +312,7 @@ def collection_post(context, request, __name__=None):
     # Create a new object/resource.
     # Request body should be a JSON document with
     # the new object's schema values (and _object_type).
-    # On success, return 201 Created with an empty body and Content-Location
+    # On success, return 201 Created with an empty body and Location
     # header with url of new resource.
     # On failure, response is simple application/json document
     # with an "error" key containing an error message string.
@@ -350,7 +349,6 @@ def collection_post(context, request, __name__=None):
         return dict(error=str(e))
 
     request.response.status_int = 201 # Created
-    request.response.content_location = request.resource_url(obj)
     request.response.location = request.resource_url(obj)
     # FIXME: Should the body contain a representation of the object?
     return {}

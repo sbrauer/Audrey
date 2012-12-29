@@ -267,7 +267,6 @@ Now let's demonstrate POSTing a new ``Person``::
 
     HTTP/1.1 201 Created
     Content-Length: 2
-    Content-Location: http://127.0.0.1:6543/people/50d89e1fbf90af0d7169df5d/
     Content-Type: application/json; charset=UTF-8
     Date: Mon, 24 Dec 2012 18:25:35 GMT
     Location: http://127.0.0.1:6543/people/50d89e1fbf90af0d7169df5d/
@@ -275,7 +274,7 @@ Now let's demonstrate POSTing a new ``Person``::
 
     {}
 
-Cool... Audrey responds with the ``201 Created`` success status and "Location" and "Content-Location" headers with the URL of the new resource.
+Cool... Audrey responds with the ``201 Created`` success status and "Location" header with the URL of the new resource.
 
 You might wonder what would happen if we tried to POST an invalid request.
 First let's try POSTing an empty JSON document::
@@ -355,7 +354,7 @@ Now let's try that PUT again with the two headers for OCC::
     }'
     HTTP/1.1 204 No Content
     Content-Length: 0
-    Content-Location: http://127.0.0.1:6543/people/50d7b56dbf90af0e96bc8433/
+    Location: http://127.0.0.1:6543/people/50d7b56dbf90af0e96bc8433/
     Content-Type: application/json; charset=UTF-8
     Date: Mon, 24 Dec 2012 20:19:23 GMT
     Server: waitress
@@ -406,6 +405,12 @@ Success!  Let's confirm the change by doing another GET::
 Note that the "photo" is no longer null and the list of "file" links now
 contains one item with type="image/jpeg" and name="50d8a64bbf90af0d7169df5e".
 A client could match up that name with the value of the photo FileId.
+
+Try viewing the photo by hitting http://127.0.0.1:6543/people/50d7b56dbf90af0e96bc8433/@@download/50d8a64bbf90af0d7169df5e
+
+You could also traverse to the ``photo`` attribute like so:
+http://127.0.0.1:6543/people/50d7b56dbf90af0e96bc8433/photo
+
 
 As our final stop before ending this introduction, let's try out the search api.
 We'll do a search for "dale"::
