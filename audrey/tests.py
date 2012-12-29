@@ -32,14 +32,12 @@ def _getExampleObjectClass():
     import colander
     class ExampleObject(resources.object.Object):
         _object_type = TYPE_NAME
-        @classmethod
-        def get_class_schema(cls, request=None):
-            schema = colander.SchemaNode(colander.Mapping())
-            schema.add(colander.SchemaNode(colander.String(), name='title'))
-            schema.add(colander.SchemaNode(colander.String(), name='body', is_html=True))
-            schema.add(colander.SchemaNode(colander.Date(), name='dateline'))
-            schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(colander.String()), name='tags', missing=[], default=[]))
-            return schema
+        _schema = colander.SchemaNode(colander.Mapping())
+        _schema.add(colander.SchemaNode(colander.String(), name='title'))
+        _schema.add(colander.SchemaNode(colander.String(), name='body', is_html=True))
+        _schema.add(colander.SchemaNode(colander.Date(), name='dateline'))
+        _schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(colander.String()), name='tags', missing=[], default=[]))
+
     classes[TYPE_NAME] = ExampleObject
     return ExampleObject
 
@@ -60,11 +58,9 @@ def _getExampleNamedObjectClass():
     import colander
     class ExampleNamedObject(resources.object.NamedObject):
         _object_type = TYPE_NAME
-        @classmethod
-        def get_class_schema(cls, request=None):
-            schema = colander.SchemaNode(colander.Mapping())
-            schema.add(colander.SchemaNode(colander.String(), name='title'))
-            return schema
+        _schema = colander.SchemaNode(colander.Mapping())
+        _schema.add(colander.SchemaNode(colander.String(), name='title'))
+
     classes[TYPE_NAME] = ExampleNamedObject
     return ExampleNamedObject
 
@@ -86,11 +82,9 @@ def _getExampleObjectClassWithFiles():
     import colander
     class ExampleObjectWithFiles(resources.object.Object):
         _object_type = TYPE_NAME
-        @classmethod
-        def get_class_schema(cls, request=None):
-            schema = colander.SchemaNode(colander.Mapping())
-            schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(audrey.types.File()), name='files', missing=[], default=[]))
-            return schema
+        _schema = colander.SchemaNode(colander.Mapping())
+        _schema.add(colander.SchemaNode(colander.Sequence(), colander.SchemaNode(audrey.types.File()), name='files', missing=[], default=[]))
+
     classes[TYPE_NAME] = ExampleObjectWithFiles
     return ExampleObjectWithFiles
 

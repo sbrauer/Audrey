@@ -54,8 +54,8 @@ this attribute should be a string that uniquely identifies the Object type
 (within the context of your project).  It's used in many places as a key
 to lookup a given Object class.  There are no restrictions on the characters it may contain, so feel free to make it human-friendly (using spaces instead of underscores to separate words, for example).
 
-In lines 11-17, the class method ``get_class_schema()`` is overridden.  This
-method should return a colander schema representing the user-editable
+In lines 10-14, the class attribute ``_schema`` is overridden.  The value of
+this attribute should be a colander schema representing the user-editable
 attributes for the Object type (the sort of attributes that might
 be shown as fields in an edit form).  This is standard colander stuff, and
 you can use all the colander types (including Mapping and Sequence).
@@ -69,32 +69,33 @@ File attribute with the name ``photo`` is defined for the ``person`` type.
 to another Object (possibly in another collection).
 As an example, see lines 46-48 where a Reference attribute with the name ``author`` is defined to allow a reference from the ``post`` type to the ``person`` type.
 
-In lines 19-28, the method ``get_title()`` is overridden.  This method should
+In lines 16-25, the method ``get_title()`` is overridden.  This method should
 return a string suitable for use as a human-friendly title of an Object 
 instance (as might be shown as the text in a link to the object).
 If you don't override this method, it will return the object's ``__name__``
 by default.  The implementation of ``Person.get_title()`` is a little long 
 since it tries to be flexible and handle cases where the "firstname" and "lastname" attributes may be missing.  The implementation 
-of ``Post.get_title()`` at line 48 is a one-liner suitable for types that
+of ``Post.get_title()`` at line 45 is a one-liner suitable for types that
 have a single attribute that's a natural fit for a title.
 
-For a lot of object types, these two methods and one attribute will be all
-you need to override.  Of course, you may opt to add new methods and/or 
-attributes of your own.
+For a lot of object types, that's all you'll need to override.
+It should go without saying that since these are just Python classes,
+you're free to override other methods and add your own to suit your
+specific needs.
 
-Moving on, lines 30-32 define a ``People`` class that subclasses :class:`audrey.resources.collection.Collection`.  This is pretty short and sweet.
+Moving on, lines 27-29 define a ``People`` class that subclasses :class:`audrey.resources.collection.Collection`.  This is pretty short and sweet.
 
-Line 31 overrides the ``_collection_name`` class attribute.  The value of this
+Line 28 overrides the ``_collection_name`` class attribute.  The value of this
 attribute is a string that uniquely identifies the Collection within the content of your project.  It's used as a key/name to traverse from the root of the app
 to a singleton instance of the Collection.
 
-Line 32 overrides the ``_object_classes`` class attribute.  The value of this attribute is a sequence of Object classes representing the types of Objects that may exist in the Collection.  In this case, the People Collection is homogenous and only contains Person Objects.  You can, however, define Collections that may contain multiple Object types (presumably with some common sub-schema).
+Line 29 overrides the ``_object_classes`` class attribute.  The value of this attribute is a sequence of Object classes representing the types of Objects that may exist in the Collection.  In this case, the People Collection is homogenous and only contains Person Objects.  You can, however, define Collections that may contain multiple Object types (presumably with some common sub-schema).
 
-Lines 34-56 define another Object type and another homogenous Collection.
+Lines 31-49 define another Object type and another homogenous Collection.
 
-Lines 58-59 define a ``Root`` class that subclasses :class:`audrey.resources.root.Root` and overrides the ``_collection_classes`` class attribute.  The value of this attribute is a sequence of Collection classes representing all the Collections in use in the app.
+Lines 51-52 define a ``Root`` class that subclasses :class:`audrey.resources.root.Root` and overrides the ``_collection_classes`` class attribute.  The value of this attribute is a sequence of Collection classes representing all the Collections in use in the app.
 
-Lines 61-62 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
+Lines 54-55 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
 
 If you haven't read the :doc:`overview` section yet, you may want to now.
 It demonstrates some of the functionality Audrey provides using the 

@@ -7,14 +7,11 @@ import colander
 class Person(audrey.resources.object.Object):
     _object_type = "person"
 
-    @classmethod
-    def get_class_schema(cls, request=None):
-        schema = colander.SchemaNode(colander.Mapping())
-        schema.add(colander.SchemaNode(colander.String(), name='firstname'))
-        schema.add(colander.SchemaNode(colander.String(), name='lastname'))
-        schema.add(colander.SchemaNode(audrey.types.File(), name='photo',
-                                       default=None, missing=None))
-        return schema
+    _schema = colander.SchemaNode(colander.Mapping())
+    _schema.add(colander.SchemaNode(colander.String(), name='firstname'))
+    _schema.add(colander.SchemaNode(colander.String(), name='lastname'))
+    _schema.add(colander.SchemaNode(audrey.types.File(), name='photo',
+                default=None, missing=None))
 
     def get_title(self):
         parts = []
@@ -34,19 +31,15 @@ class People(audrey.resources.collection.Collection):
 class Post(audrey.resources.object.Object):
     _object_type = "post"
 
-    @classmethod
-    def get_class_schema(cls, request=None):
-        schema = colander.SchemaNode(colander.Mapping())
-        schema.add(colander.SchemaNode(colander.String(), name='title'))
-        schema.add(colander.SchemaNode(colander.DateTime(),
-            name='dateline',
-            missing=audrey.dateutil.utcnow(zero_seconds=True)))
-        schema.add(colander.SchemaNode(colander.String(), name='body',
-                                       is_html=True))
-        schema.add(colander.SchemaNode(
-            audrey.types.Reference(collection='people'),
-            name='author', default=None, missing=None))
-        return schema
+    _schema = colander.SchemaNode(colander.Mapping())
+    _schema.add(colander.SchemaNode(colander.String(), name='title'))
+    _schema.add(colander.SchemaNode(colander.DateTime(), name='dateline',
+                missing=audrey.dateutil.utcnow(zero_seconds=True)))
+    _schema.add(colander.SchemaNode(colander.String(), name='body',
+                is_html=True))
+    _schema.add(colander.SchemaNode(
+                audrey.types.Reference(collection='people'),
+                name='author', default=None, missing=None))
 
     def get_title(self):
         return getattr(self, 'title', None) or 'Untitled'

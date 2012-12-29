@@ -22,8 +22,13 @@ class Object(object):
     Developers extending Audrey should create their own subclass(es) of 
     Object that:
 
-    * override class attribute :attr:`_object_type`; this string should uniquely identify the Object type within the context of an Audrey application
-    * override class method :meth:`get_class_schema` to return a colander schema for the type.
+    * override class attribute :attr:`_object_type`; this string should
+      uniquely identify the Object type within the context of an Audrey
+      application
+    * override either the :attr:`_schema` class attributes or the
+      :meth:`get_class_schema` class method.
+      Either way, :meth:`get_class_schema` should return a colander schema for
+      the type.
     * override :meth:`get_title` to return a suitable title string for an
       instance of the type.
 
@@ -44,29 +49,37 @@ class Object(object):
 
     _save_object_type_to_mongo = False
 
+    # A boring empty schema...
+    _schema = colander.SchemaNode(colander.Mapping())
+
     @classmethod
     def get_class_schema(cls, request=None):
         """
         Return a colander schema describing the user-editable
         attributes for this Object type.
 
-        :param request: the current request, possibly None
+        :param request: the current request, possibly ``None``
         :type request: :class:`pyramid.request.Request`
         :rtype: :class:`colander.SchemaNode`
-
-        If a ``request`` is passed, you may opt to use it to get access
-        to various interesting bits of data like the current user, a context
-        object, etc.  You could use that to set default values, vocabulary
-        lists, etc.  If you do so, just make sure that you still return
-        a reasonable schema even when ``request`` is ``None``.
 
         Audrey makes use of the following custom :class:`SchemaNode` kwargs
         for :class:`colander.String` nodes:
 
         * ``include_in_text``: boolean, defaults to True; if True, the value will be included in Elastic's full text index.
         * ``is_html``: boolean, defaults to False; if True, the value will be stripped of html markup before being indexed in Elastic.
+
+        The default implementation of this method simply returns the
+        class attribute ``_schema``.
+
+        If a ``request`` is passed, you may opt to use it to get access
+        to various interesting bits of data like the current user, a context
+        object, etc.  You could use that to set default values, vocabulary
+        lists, etc.  If you opt to customize the schema for each request,
+        be sure to start by creating a deepcopy of ``_schema``, or
+        ditch the use of that class attribute altogether and construct
+        the schema inside this method.
         """
-        return colander.SchemaNode(colander.Mapping())
+        return cls._schema
 
     # Should this Object use Elastic?
     # Note that this setting only matters if the Collection's _use_elastic=True.
