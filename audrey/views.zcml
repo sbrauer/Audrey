@@ -40,16 +40,17 @@ using the Content-Type as mimetype and the value of Slug header as filename
      />
 
 <!--
-FIXME: should we really allow access to an GridFS file by ID this way?
+FIXME: should we really allow access to any GridFS file by ID this way?
 Not very secure for sensitive files.
-Maybe comment this view out...?
--->
+Commenting out for now...
+
    <view
      context=".resources.root.Root"
      name="download"
      view=".views.root_download"
      request_method="GET"
      />
+-->
 
    <view
      context=".resources.object.Object"
