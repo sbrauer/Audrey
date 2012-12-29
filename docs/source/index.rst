@@ -30,7 +30,7 @@ facilities <http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/se
    The API is subject to change.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    overview
    resources

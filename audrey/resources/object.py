@@ -396,7 +396,7 @@ class Object(object):
         :rtype: integer
 
         Returns the number of items affected (normally this will
-        be 1, but it may be 0 if :meth:`use_elastic` is ``False`` or
+        be 1, but it may be 0 if use of ElasticSearch is disabled or
         if the object wasn't indexed to begin with).
         """
         econn = self.get_elastic_connection()
