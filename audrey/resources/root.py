@@ -115,8 +115,10 @@ class Root(object):
     
     def get_elastic_connection(self):
         """ Return a connection to the ElasticSearch server.
+        May return ``None`` if no ElasticSearch connection is configured
+        for the app.
 
-        :rtype: :class:`pyes.es.ES`
+        :rtype: :class:`pyes.es.ES` or ``None``
         """
         return self.request.registry.settings['elastic_conn']
     
@@ -233,13 +235,16 @@ class Root(object):
         Each dictionary key is a field name and each string is an HTML fragment
         where the matched term is in an ``<em>`` tag.
         """
+        econn = self.get_elastic_connection()
+        if econn is None:
+            raise RuntimeError("Use of ElasticSearch is disabled.")
         # Normalize query_parms by removing items where the value is None.
         keys = query_parms.keys()
         for key in keys:
             val = query_parms[key]
             if val == None:
                 del query_parms[key]
-        return self.get_elastic_connection().search_raw(query or {}, indices=(self.get_elastic_index_name(),), doc_types=doc_types, **query_parms)
+        return econn.search_raw(query or {}, indices=(self.get_elastic_index_name(),), doc_types=doc_types, **query_parms)
 
     def get_objects_and_highlights_for_raw_search_results(self, results):
         """ Given a ``pyes`` result dictionary (such as returned by

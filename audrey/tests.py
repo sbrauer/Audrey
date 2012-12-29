@@ -244,15 +244,6 @@ class ObjectTests(unittest.TestCase):
         self.assertEqual(instance.title, "A Title")
         self.assertEqual(instance._created, None)
 
-    def test_use_elastic(self):
-        request = testing.DummyRequest()
-        instance = _makeOneObject(request)
-        coll = _makeOneCollection(request)
-        instance.__parent__ = coll
-        self.assertTrue(instance.use_elastic())
-        coll._use_elastic = False
-        self.assertFalse(instance.use_elastic())
-
     def test_get_nonschema_values(self):
         request = testing.DummyRequest()
         instance = _makeOneObject(request)
@@ -485,11 +476,11 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(root.search_raw()['hits']['total'], 2)
         coll.add_child(instance3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
-        coll._clear_elastic()
+        coll.clear_elastic()
         self.assertEqual(root.search_raw()['hits']['total'], 0)
-        self.assertEqual(coll._reindex_all(), 3)
+        self.assertEqual(coll.reindex_all(), 3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
-        self.assertEqual(coll._reindex_all(clear=True), 3)
+        self.assertEqual(coll.reindex_all(clear=True), 3)
         self.assertEqual(root.search_raw()['hits']['total'], 3)
 
         name_coll = root['example_naming_collection']
@@ -500,9 +491,9 @@ class FunctionalTests(unittest.TestCase):
         name_coll.add_child(namedinstance2)
         name_coll.add_child(namedinstance3)
         self.assertEqual(root.search_raw()['hits']['total'], 6)
-        root._clear_elastic()
+        root.clear_elastic()
         self.assertEqual(root.search_raw()['hits']['total'], 0)
-        root._reindex_all()
+        root.reindex_all()
         self.assertEqual(root.search_raw()['hits']['total'], 6)
         result = root.basic_fulltext_search(search_string='Three', highlight_fields=['text'], sort='_created')
         self.assertEqual(result['total'], 2)

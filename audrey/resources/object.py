@@ -37,6 +37,8 @@ class Object(object):
     This is defaulted to ``False`` under the assumption that homogenous
     collections are the norm, in which case storing the same ``_object_type``
     in every document is redundant.
+
+    If ElasticSearch indexing isn't desired, override the class attribute :attr:`_use_elastic` to ``False``.
     """
     _object_type = "object"
 
@@ -84,19 +86,6 @@ class Object(object):
         self.request = request
         self.set_schema_values(**kwargs)
         self.set_nonschema_values(**kwargs)
-
-    def use_elastic(self):
-        """
-        Should this object use ElasticSearch for indexing?
-
-        Returns ``True`` if both the ``Object`` class and the 
-        ``Collection`` class have the class attribute ``_use_elastic``
-        set to ``True``.
-
-        :rtype: boolean
-        """
-        assert getattr(self, '__parent__', None), "parentless child!"
-        return self._use_elastic and self.__parent__._use_elastic
 
     def get_schema(self):
         """ Return the colander schema for this ``Object`` type.
@@ -185,11 +174,17 @@ class Object(object):
 
     def get_elastic_connection(self):
         """ Return a connection to the ElasticSearch server.
+        May return ``None`` if the class attribute :attr:`_use_elastic`
+        is ``False`` for this Object type or the Collection,
+        or if no ElasticSearch connection is configured for the app.
 
-        :rtype: :class:`pyes.es.ES`
+        :rtype: :class:`pyes.es.ES` or ``None``
         """
         assert getattr(self, '__parent__', None), "parentless child!"
-        return self.__parent__.get_elastic_connection()
+        if self._use_elastic:
+            return self.__parent__.get_elastic_connection()
+        else:
+            return None
 
     def get_elastic_index_name(self):
         """ Return the name of the ElasticSearch index for this object.
@@ -386,12 +381,14 @@ class Object(object):
     def index(self):
         """ Index (or reindex) this object in ElasticSearch.
 
-        Note that this is a no-op when :meth:`use_elastic` is ``False``.
+        Note that this is a no-op when use of ElasticSearch is disabled
+        (for this Object, its collection or the app).
         """
-        if not self.use_elastic(): return
+        econn = self.get_elastic_connection()
+        if econn is None: return
         doc = self.get_elastic_index_doc()
-        self.get_elastic_connection().index(doc, self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
-        self.get_elastic_connection().refresh(self.get_elastic_index_name())
+        econn.index(doc, self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
+        econn.refresh(self.get_elastic_index_name())
 
     def unindex(self):
         """ Unindex this object in ElasticSearch.
@@ -402,10 +399,11 @@ class Object(object):
         be 1, but it may be 0 if :meth:`use_elastic` is ``False`` or
         if the object wasn't indexed to begin with).
         """
-        if not self.use_elastic(): return 0
+        econn = self.get_elastic_connection()
+        if econn is None: return 0
         try:
-            self.get_elastic_connection().delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
-            self.get_elastic_connection().refresh(self.get_elastic_index_name())
+            econn.delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
+            econn.refresh(self.get_elastic_index_name())
             return 1
         except pyes.exceptions.NotFoundException, e:
             return 0

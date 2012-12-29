@@ -119,10 +119,16 @@ class Collection(object):
 
     def get_elastic_connection(self):
         """ Return a connection to the ElasticSearch server.
+        May return ``None`` if the class attribute :attr:`_use_elastic`
+        is ``False``, or if no ElasticSearch connection is configured for
+        the app.
 
-        :rtype: :class:`pyes.es.ES`
+        :rtype: :class:`pyes.es.ES` or ``None``
         """
-        return self.__parent__.get_elastic_connection()
+        if self._use_elastic:
+            return self.__parent__.get_elastic_connection()
+        else:
+            return None
 
     def get_elastic_index_name(self):
         """ Return the name of the ElasticSearch index.
