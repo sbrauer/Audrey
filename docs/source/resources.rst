@@ -89,7 +89,7 @@ Line 28 overrides the ``_collection_name`` class attribute.  The value of this
 attribute is a string that uniquely identifies the Collection within the content of your project.  It's used as a key/name to traverse from the root of the app
 to a singleton instance of the Collection.
 
-Line 29 overrides the ``_object_classes`` class attribute.  The value of this attribute is a sequence of Object classes representing the types of Objects that may exist in the Collection.  In this case, the People Collection is homogenous and only contains Person Objects.  You can, however, define Collections that may contain multiple Object types (presumably with some common sub-schema).
+Line 29 overrides the ``_object_classes`` class attribute.  The value of this attribute is a sequence of Object classes representing the types of Objects that may exist in the Collection.  In this case, the People Collection is homogenous and only contains Person Objects.  You can, however, define Collections that may contain multiple Object types (presumably with some common sub-schema).  When creating Object types that will be in a non-homogenous Collection, be sure to set the :attr:`audrey.resources.object.Object._save_object_type_to_mongo` class attribute to ``True``; otherwise the Collection will raise an exception while deserializing from MongoDB since it won't be able to determine the correct Object class to construct.
 
 Lines 31-49 define another Object type and another homogenous Collection.
 
