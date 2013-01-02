@@ -17,7 +17,7 @@ def convert_naive_datetime(dt, tz_from, tz_to):
     Convert US/Eastern datetime to UTC:
     convert_datetime(datetime.datetime.now(), 'US/Eastern', pytz.utc)
 
-    Convert US/Eastern datetime to ES/Pacific:
+    Convert US/Eastern datetime to US/Pacific:
     convert_datetime(datetime.datetime.now(), 'US/Eastern', 'US/Pacific')
     """
     return convert_aware_datetime(make_aware(dt, tz_from), tz_to)
