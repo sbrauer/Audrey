@@ -24,7 +24,7 @@ Prerequisites
         mkdir -p data
         bin/mongod --dbpath=data --rest
 
-3. ElasticSearch (optional; fulltext and cross-collection search won't work without it)
+3. ElasticSearch (optional; full text and cross-collection search won't work without it)
 
    If you don't already have an ElasticSearch server, install the latest production release from http://www.elasticsearch.org/download/
    

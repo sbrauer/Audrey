@@ -4,7 +4,7 @@ Audrey
 Audrey is a minimal framework for creating
 `Pyramid <http://www.pylonsproject.org/>`_ applications that
 use `MongoDB <http://www.mongodb.org/>`_ for persistence,
-`ElasticSearch <http://www.elasticsearch.org/>`_ for fulltext
+`ElasticSearch <http://www.elasticsearch.org/>`_ for full text
 search (optional), `traversal <http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/traversal.html>`_ for resource/view lookup, and
 `colander <http://pypi.python.org/pypi/colander>`_ for schema declaration
 and user input validation.
