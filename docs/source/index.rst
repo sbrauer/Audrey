@@ -32,7 +32,7 @@ facilities <http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/se
 .. toctree::
    :maxdepth: 3
 
-   overview
+   introduction
    resources
    install
    api

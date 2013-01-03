@@ -97,7 +97,7 @@ Lines 51-52 define a ``Root`` class that subclasses :class:`audrey.resources.roo
 
 Lines 54-55 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
 
-If you haven't read the :doc:`overview` section yet, you may want to now.
+If you haven't read the :doc:`introduction` section yet, you may want to now.
 It demonstrates some of the functionality Audrey provides using the 
 ``Person`` and ``People`` classes defined here as examples.
 

@@ -1,5 +1,5 @@
-Overview
-========
+Introduction
+============
 
 Let's say you just installed Audrey and used its starter scaffold to create
 a new project (as described in :ref:`creating-new-project`).  You'd have two
@@ -86,7 +86,7 @@ version of its ID like this::
     <myproject.resources.People object at 0xa26c04c>
 
 .. note::
-   Using the ID as the __name__ is the behavior of the base Audrey :class:`Object` and :class:`Collection` types.  There exist subclasses :class:`NamedObject` and :class:`NamingCollection` that allow for explicit control over naming.  Whether you use one or the other depends on your use case.  For this example, I opted to keep it minimal and use the base classes.
+   Using the ID as the __name__ is the behavior of the base Audrey :class:`Object` and :class:`Collection` types.  There exist subclasses :class:`NamedObject` and :class:`NamingCollection` that allow for explicit control over naming.  Whether you use one or the other depends on your use case.  For this introduction, I opted to keep it minimal and use the base classes.
 
 Let's add a couple more Person objects to make things a little more interesting.
 We can pass kwargs to the object constructor to initialize attributes::
@@ -114,11 +114,10 @@ First let's retrieve his object::
      'lastname': u'Cooper',
      'photo': None}
 
-Now we'll open a file, add it to Audrey's GridFS, then update and save the Person::
+Now we'll open a file, add it to Audrey's GridFS, update the Person and then save it::
 
-    >>> f = open("dale-cooper.jpg")
-    >>> obj.photo = root.create_gridfs_file(f, "dale-cooper.jpg", "image/jpeg")
-    >>> f.close()
+    >>> with open("dale-cooper.jpg") as f:
+    ...     obj.photo = root.create_gridfs_file(f, "dale-cooper.jpg", "image/jpeg")
     >>> obj.save()
     >>> print obj
     {'_created': datetime.datetime(2012, 12, 24, 2, 10, 14, 856000, tzinfo=<UTC>),
@@ -129,10 +128,15 @@ Now we'll open a file, add it to Audrey's GridFS, then update and save the Perso
      'lastname': u'Cooper',
      'photo': <audrey.resources.file.File object at 0xaa2190c>}
 
-``photo`` is an instance of :class:`audrey.resources.file.File`.  This is simply a wrapper around the ObjectId of a GridFS file.  To access the GridFS file, call ``get_gridfs_file()``::
+``photo`` is an instance of :class:`audrey.resources.file.File`.  This is simply a wrapper around the ObjectId of a GridFS file.  To access the GridFS file (which can be read like a normal Python file and also has a few extra attributes like ``name`` and ``content_type``), call ``get_gridfs_file()``::
 
-    >>> obj.photo.get_gridfs_file(request)
-    <gridfs.grid_file.GridOut object at 0x947c64c>
+    >>> gf = obj.photo.get_gridfs_file(request)
+    >>> gf.name
+    u'dale-cooper.jpg'
+    >>> gf.length
+    66953
+    >>> gf.content_type
+    u'image/jpeg'
 
 We've covered creating and updating objects.  Now let's delete one::
 
@@ -142,7 +146,7 @@ We've covered creating and updating objects.  Now let's delete one::
     [u'Dale Cooper', u'Audrey Horne']
 
 .. note::
-   ``Collection`` also has methods ``delete_child_by_id()`` and ``delete_child_by_name()``.  This overview doesn't try to demonstrate every method and parameter.
+   ``Collection`` also has methods ``delete_child_by_id()`` and ``delete_child_by_name()``.  This introduction doesn't try to demonstrate every method and parameter.  Refer to the :doc:`api` section for more.
 
 Now let's switch our focus to the web api.  (If you're running locally, you can
 explore the api with HAL-browser by visiting http://127.0.0.1:6543/hal-browser/
@@ -456,7 +460,7 @@ You could also traverse to the ``photo`` attribute like so:
 http://127.0.0.1:6543/people/50d7b56dbf90af0e96bc8433/photo
 
 
-As our final stop before ending this introduction, let's try out the search api.
+As our final stop before ending this introduction, let's try out the most basic usage of the search api.
 We'll do a search for "dale"::
 
     $ curl http://127.0.0.1:6543/@@search?q=dale | python -mjson.tool
@@ -486,4 +490,4 @@ We'll do a search for "dale"::
 
 The search found Dale's ``Person`` object.  As you might guess, if there were lots of results they would be batched with "next" and "prev" links.
 
-Well that wraps up this introduction.  It didn't cover all of Audrey's functionality and nuances, but hopefully it provided a sufficient taste.
+Well that wraps up this introduction.  It didn't cover everything, but hopefully it provided a sufficient taste.
