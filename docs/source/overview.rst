@@ -93,12 +93,61 @@ version of its ID like this::
 .. note::
    Using the ID as the __name__ is the behavior of the base Audrey :class:`Object` and :class:`Collection` types.  There exist subclasses :class:`NamedObject` and :class:`NamingCollection` that allow for explicit control over naming.  Whether you use one or the other depends on your use case.  For this example, I opted to keep it minimal and use the base classes.
 
-Let's add another Person to make things a little more interesting.
+Let's add a couple more Person objects to make things a little more interesting.
 Note that we can pass kwargs to the object constructor to initialize attributes::
 
+    >>> people.add_child(resources.Person(request, firstname='Laura', lastname='Palmer'))
     >>> people.add_child(resources.Person(request, firstname='Dale', lastname='Cooper'))
     >>> [child.get_title() for child in people.get_children()]
-    [u'Audrey Horne', u'Dale Cooper']
+    [u'Dale Cooper', u'Audrey Horne', u'Laura Palmer']
+
+You'll note that the order of the children is arbitrary.  Let's explicitly sort them::
+
+    >>> [child.get_title() for child in people.get_children(sort=[('_created',1)])]
+    [u'Audrey Horne', u'Dale Cooper', u'Laura Palmer']
+
+Did you notice the ``photo`` attribute earlier?  Let's set a photo for Dale.
+First let's retrieve his object::
+
+    >>> obj = people.get_child({'firstname':'Dale'})
+    >>> print obj
+    {'_created': datetime.datetime(2012, 12, 24, 2, 10, 14, 856000, tzinfo=<UTC>),
+     '_etag': u'a8ee673c5490be625bd720375add252f',
+     '_id': ObjectId('50d7b986bf90af0e96bc8434'),
+     '_modified': datetime.datetime(2012, 12, 24, 2, 10, 14, 856000, tzinfo=<UTC>),
+     'firstname': u'Dale',
+     'lastname': u'Cooper',
+     'photo': None}
+
+Now we'll open a file, add it to Audrey's GridFS, then update and save the Person::
+
+    >>> f = open("dale-cooper.jpg")
+    >>> obj.photo = root.create_gridfs_file(f, "dale-cooper.jpg", "image/jpeg")
+    >>> f.close()
+    >>> obj.save()
+    >>> print obj
+    {'_created': datetime.datetime(2012, 12, 24, 2, 10, 14, 856000, tzinfo=<UTC>),
+     '_etag': '080b9d79d888e5d6714acc8cfb07d6ae',
+     '_id': ObjectId('50d7b986bf90af0e96bc8434'),
+     '_modified': datetime.datetime(2013, 1, 3, 1, 7, 31, 134749, tzinfo=<UTC>),
+     'firstname': u'Dale',
+     'lastname': u'Cooper',
+     'photo': <audrey.resources.file.File object at 0xaa2190c>}
+
+You'll notice that the ``photo`` is an instance of :class:`audrey.resources.file.File``.  This is simply a wrapper around the ObjectId of a GridFS file.  To access the GridFS file, call ``get_gridfs_file()``::
+
+    >>> obj.photo.get_gridfs_file(request)
+    <gridfs.grid_file.GridOut object at 0x947c64c>
+
+We've covered creating and updating objects.  Now let's delete one::
+
+    >>> obj = people.get_child({'firstname': 'Laura'})
+    >>> people.delete_child(obj)
+    >>> [child.get_title() for child in people.get_children()]
+    [u'Dale Cooper', u'Audrey Horne']
+
+.. note::
+   ``Collection`` also has methods ``delete_child_by_id()`` and ``delete_child_by_name()``.  This overview doesn't try to demonstrate every method and parameter.
 
 Now let's switch our focus to the web api.  (If you're running locally, you can
 explore the api with HAL-browser by visiting http://127.0.0.1:6543/hal-browser/
@@ -442,4 +491,4 @@ We'll do a search for "dale"::
 
 The search found Dale's ``Person`` object.  As you might guess, if there were lots of results they would be batched with "next" and "prev" links.
 
-Well that wraps up this introduction.  It didn't cover all of Audrey's functionality and nuances, but hopefully it provides an adequate overview.
+Well that wraps up this introduction.  It didn't cover all of Audrey's functionality and nuances, but hopefully it provides a sufficient taste.
