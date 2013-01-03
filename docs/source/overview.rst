@@ -48,23 +48,18 @@ Look's like there aren't any people yet.  So let's create one::
      'lastname': None,
      'photo': None}
 
-Kinda boring.  Let's set a couple of fields::
+Kinda boring.  But let's see what would happen if we tried to save it (by
+adding it to the ``people`` collection)::
+
+    >>> people.add_child(person)
+    ... traceback omitted ...
+    Invalid: {'firstname': u'Required', 'lastname': u'Required'}
+
+That's a :class:`colander.Invalid` exception letting us know that schema
+validation failed.  Let's set the required attributes and try again::
 
     >>> person.firstname = 'Audrey'
     >>> person.lastname = 'Horne'
-    >>> print person
-    {'_created': None,
-     '_etag': None,
-     '_id': None,
-     '_modified': None,
-     'firstname': 'Audrey',
-     'lastname': 'Horne',
-     'photo': None}
-    >>> person.get_title()
-    'Audrey Horne'
-
-Now let's add this ``Person`` object to the ``People`` collection::
-
     >>> people.add_child(person)
     >>> print person
     {'_created': datetime.datetime(2012, 12, 24, 1, 52, 45, 281718, tzinfo=<UTC>),
@@ -491,4 +486,4 @@ We'll do a search for "dale"::
 
 The search found Dale's ``Person`` object.  As you might guess, if there were lots of results they would be batched with "next" and "prev" links.
 
-Well that wraps up this introduction.  It didn't cover all of Audrey's functionality and nuances, but hopefully it provides a sufficient taste.
+Well that wraps up this introduction.  It didn't cover all of Audrey's functionality and nuances, but hopefully it provided a sufficient taste.
