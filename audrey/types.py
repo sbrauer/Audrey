@@ -26,7 +26,7 @@ class Reference(object):
         self.collection = collection
 
     def serialize(self, node, appstruct):
-        if appstruct in (null, None):
+        if (appstruct is null) or (appstruct is None):
             return null
         if not isinstance(appstruct, audrey.resources.reference.Reference):
            raise Invalid(node, '%r is not a Reference' % appstruct)
@@ -65,7 +65,7 @@ class File(object):
     string representation of the file's ID in the GridFS.
     """
     def serialize(self, node, appstruct):
-        if appstruct in (null, None):
+        if (appstruct is null) or (appstruct is None):
             return null
         if not isinstance(appstruct, audrey.resources.file.File):
            raise Invalid(node, '%r is not a File' % appstruct)
