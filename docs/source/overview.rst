@@ -89,14 +89,14 @@ version of its ID like this::
    Using the ID as the __name__ is the behavior of the base Audrey :class:`Object` and :class:`Collection` types.  There exist subclasses :class:`NamedObject` and :class:`NamingCollection` that allow for explicit control over naming.  Whether you use one or the other depends on your use case.  For this example, I opted to keep it minimal and use the base classes.
 
 Let's add a couple more Person objects to make things a little more interesting.
-Note that we can pass kwargs to the object constructor to initialize attributes::
+We can pass kwargs to the object constructor to initialize attributes::
 
     >>> people.add_child(resources.Person(request, firstname='Laura', lastname='Palmer'))
     >>> people.add_child(resources.Person(request, firstname='Dale', lastname='Cooper'))
     >>> [child.get_title() for child in people.get_children()]
     [u'Dale Cooper', u'Audrey Horne', u'Laura Palmer']
 
-You'll note that the order of the children is arbitrary.  Let's explicitly sort them::
+The order of the children is arbitrary.  Let's explicitly sort them::
 
     >>> [child.get_title() for child in people.get_children(sort=[('_created',1)])]
     [u'Audrey Horne', u'Dale Cooper', u'Laura Palmer']
@@ -129,7 +129,7 @@ Now we'll open a file, add it to Audrey's GridFS, then update and save the Perso
      'lastname': u'Cooper',
      'photo': <audrey.resources.file.File object at 0xaa2190c>}
 
-You'll notice that the ``photo`` is an instance of :class:`audrey.resources.file.File``.  This is simply a wrapper around the ObjectId of a GridFS file.  To access the GridFS file, call ``get_gridfs_file()``::
+``photo`` is an instance of :class:`audrey.resources.file.File`.  This is simply a wrapper around the ObjectId of a GridFS file.  To access the GridFS file, call ``get_gridfs_file()``::
 
     >>> obj.photo.get_gridfs_file(request)
     <gridfs.grid_file.GridOut object at 0x947c64c>
@@ -189,7 +189,7 @@ state of its own, the document just has a number of links keyed by link
 relation ("rel") names.  Besides "self" which is obligatory for HAL, Audrey
 tries to stick to relations from the `IANA list <http://www.iana.org/assignments/link-relations/link-relations.xml>`_.
 
-Here we see "item" used to list the children of root (the "people" and "posts" collections).  Note that the urls are templated, in this case indicating that
+Here we see "item" used to list the children of root (the "people" and "posts" collections).  These urls are templated, in this case indicating that
 you may use an optional "sort" parameter.  In a moment, we'll follow one of these links.
 
 There's also a link to a "search" endpoint (again with a URL template) and another to the "upload" endpoint.  Since there was no IANA rel that seemed suitable for the upload endpoint (which as you may have guessed is a factory for uploading files into the system), Audrey uses a namespaced URI.  Applying the "curie" template, "audrey:upload" expands to "http://127.0.0.1:6543/relations/upload"; visiting that url returns some HTML documentation of the endpoint including the expected request and response details.
@@ -446,7 +446,7 @@ Success!  Let's confirm the change by doing another GET::
         }
     }
 
-Note that the "photo" is no longer null and the list of "file" links now
+The "photo" is no longer null and the list of "file" links now
 contains one item with type="image/jpeg" and name="50d8a64bbf90af0d7169df5e".
 A client could match up that name with the value of the photo FileId.
 
