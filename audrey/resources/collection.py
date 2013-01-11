@@ -244,14 +244,7 @@ class Collection(object):
             raise KeyError
         return child
 
-    ###
-    # In the following get_child...() methods, spec and sort parameters
-    # should follow the conventions for those same parameters for 
-    # pymongo's Collection.find() method.
-    # http://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.find
-    ###
-
-    def get_children_and_total(self, spec=None, sort=None, skip=0, limit=0):
+    def get_children_and_total(self, spec=None, sort=None, skip=0, limit=0, fields=None):
         """ Query for children and return the total number of matching children
         and a list of the children (or a batch of children if the ``limit``
         parameter is non-zero).
@@ -264,12 +257,14 @@ class Collection(object):
         :type skip: integer
         :param limit: maximum number of children to return
         :type limit: integer
+        :param fields: a list of field names to retrieve or ``None`` for all fields.  May also be a dict to exclude fields (example: ``fields={'body':False}``).
+        :type fields: list of strings or dict with boolean values or ``None``
         :rtype: dictionary with the keys:
 
                 * "total" - an integer indicating the total number of children matching the query ``spec``
                 * "items" - a sequence of :class:`audrey.resources.object.Object` instances
         """
-        cursor = self.get_mongo_collection().find(spec=spec, sort=sort, skip=skip, limit=limit)
+        cursor = self.get_mongo_collection().find(spec=spec, sort=sort, skip=skip, limit=limit, fields=fields)
         total = cursor.count()
         items = []
         for doc in cursor:
@@ -277,7 +272,7 @@ class Collection(object):
             items.append(obj)
         return dict(total=total, items=items)
 
-    def get_children(self, spec=None, sort=None, skip=0, limit=0):
+    def get_children(self, spec=None, sort=None, skip=0, limit=0, fields=None):
         """ Return the children matching the query parameters.
 
         :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
@@ -288,20 +283,24 @@ class Collection(object):
         :type skip: integer
         :param limit: maximum number of children to return
         :type limit: integer
+        :param fields: a list of field names to retrieve or ``None`` for all fields.  May also be a dict to exclude fields (example: ``fields={'body':False}``).
+        :type fields: list of strings or dict with boolean values or ``None``
         :rtype: a sequence of :class:`audrey.resources.object.Object` instances
         """
-        return self.get_children_and_total(spec, sort, skip, limit)['items']
+        return self.get_children_and_total(spec, sort, skip, limit, fields=fields)['items']
 
-    def get_child(self, spec=None, sort=None):
+    def get_child(self, spec=None, sort=None, fields=None):
         """ Return the first child matching the query parms.
 
         :param spec: a MongoDB query spec (as used by :meth:`pymongo.collection.Collection.find`)
         :type spec: dictionary or ``None``
         :param sort: a MongoDB sort parameter
         :type sort: a list of (key, direction) tuples or ``None``
+        :param fields: a list of field names to retrieve or ``None`` for all fields.  May also be a dict to exclude fields (example: ``fields={'body':False}``).
+        :type fields: list of strings or dict with boolean values or ``None``
         :rtype: :class:`audrey.resources.object.Object` or ``None``
         """
-        children = self.get_children(spec, sort, skip=0, limit=1)
+        children = self.get_children(spec, sort, skip=0, limit=1, fields=fields)
         if children:
             return children[0]
         return None

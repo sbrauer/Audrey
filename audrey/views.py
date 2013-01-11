@@ -22,6 +22,30 @@ def get_curie(context, request):
         templated=True,
     )
 
+def str_to_bool(s, default=None):
+    """ Interpret the given string ``s`` as a boolean value.
+    ``default`` should be one of ``None``, ``True``, or ``False``.
+    """
+    if s is None:
+        return default
+    s = s.strip().lower()
+    if s == '':
+        return default
+    if s in ('0', 'false'):
+        return False
+    return True
+
+def str_to_list(s, default=None):
+    """ Interpret the given string ``s`` as a comma-delimited list
+    of strings.
+    """
+    if s is None:
+        return default
+    s = s.strip()
+    if s == '':
+        return default
+    return s.split(',')
+
 # FIXME: replace with an interface?
 class ItemHandler(object):
     def get_property(self):
@@ -30,10 +54,12 @@ class ItemHandler(object):
         pass # Should return a dictionary representing one item.
 
 class EmbeddingItemHandler(ItemHandler):
+    def __init__(self, fields=None):
+        self.fields = fields
     def get_property(self):
         return "_embedded"
     def handle_item(self, context, request):
-        return represent_object(context, request)
+        return represent_object(context, request, fields=self.fields)
 
 class LinkingItemHandler(ItemHandler):
     def get_property(self):
@@ -86,25 +112,35 @@ def collection_options(context, request):
         request.response.allow = "HEAD,GET,OPTIONS,POST"
     request.response.status_int = 204 # No Content
 
-def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
-    ret = context.get_all_values()
-    ret['_object_type'] = context._object_type
-    ret['_title'] = context.get_title()
-    ret['_links'] = dict(
-        self = dict(href=request.resource_url(context)),
-        curie = get_curie(context, request),
-        collection = dict(href=request.resource_url(context.__parent__)),
-        describedby = dict(href=request.resource_url(context.__parent__, '@@schema', context._object_type)),
-    )
-    ret['_links']['audrey:file'] = [
+def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER, fields=None, include_meta_links=False):
+    if fields is None:
+        ret = context.get_all_values()
+    else:
+        ret = {}
+        for name in fields:
+            ret[name] = getattr(context, name, None)
+    if (fields is None) or ('_object_type' in fields):
+        ret['_object_type'] = context._object_type
+    if (fields is None) or ('_title' in fields):
+        ret['_title'] = context.get_title()
+
+    ret['_links'] = dict(self = dict(href=request.resource_url(context)))
+    if include_meta_links:
+        ret['_links']['curie'] = get_curie(context, request)
+        ret['_links']['collection'] = dict(href=request.resource_url(context.__parent__))
+        ret['_links']['describedby'] = dict(href=request.resource_url(context.__parent__, '@@schema', context._object_type))
+    file_links= [
         dict(
             name=str(f._id),
             href=request.resource_url(context, '@@download', str(f._id)),
             type=f.get_gridfs_file(request).content_type,
         ) for f in context.get_all_files()]
-    if reference_handler.get_property() == '_embedded':
-        ret['_embedded'] = {}
-    ret[reference_handler.get_property()]['audrey:reference'] = [reference_handler.handle_item(obj, request) for obj in context.get_all_referenced_objects()]
+    if file_links: ret['_links']['audrey:file'] = file_links
+    references = [reference_handler.handle_item(obj, request) for obj in context.get_all_referenced_objects()]
+    if references:
+        if reference_handler.get_property() == '_embedded':
+            ret['_embedded'] = {}
+        ret[reference_handler.get_property()]['audrey:reference'] = references
     return ret
 
 def object_get(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
@@ -112,7 +148,7 @@ def object_get(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
     request.response.etag = context._etag
     request.response.last_modified = context._modified
     request.response.conditional_response = True
-    return represent_object(context, request, reference_handler=reference_handler)
+    return represent_object(context, request, reference_handler=reference_handler, include_meta_links=True)
 
 def test_preconditions(context, request):
     # Returns None on success, or a dictionary with an "error" key on failure.
@@ -192,8 +228,8 @@ def root_get(context, request):
     ret['_links'] = dict(
         self = dict(href=request.resource_url(context)),
         curie = get_curie(context, request),
-        item = [dict(name=c.__name__, href=request.resource_url(c)+"{?sort}", templated=True) for c in context.get_collections()],
-        search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&sort}{&collection*}", templated=True),
+        item = [dict(name=c.__name__, href=request.resource_url(c)+"{?embed,fields,sort}", templated=True) for c in context.get_collections()],
+        search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&collections,sort}", templated=True),
     )
     ret['_links']['audrey:upload'] = dict(href=request.resource_url(context, '@@upload'))
     request.response.content_type = 'application/hal+json'
@@ -228,7 +264,7 @@ def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SE
     (batch, per_batch, skip) = get_batch_parms(request)
     sort = request.GET.get('sort', None)
     q = request.GET.get('q', None)
-    collection_names = request.GET.getall('collection')
+    collection_names = str_to_list(request.GET.get('collections'))
     result = context.basic_fulltext_search(search_string=q, collection_names=collection_names, skip=skip, limit=per_batch, sort=sort, highlight_fields=highlight_fields)
     total_items = result['total']
     total_batches = total_items / per_batch
@@ -262,11 +298,19 @@ def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SE
     request.response.content_type = 'application/hal+json'
     return ret
 
-def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_ITEM_HANDLER):
+def collection_get(context, request, spec=None):
+    embed = str_to_bool(request.GET.get('embed'), False)
+    fields = None
+    if embed:
+        fields = str_to_list(request.GET.get('fields'))
+        item_handler = EmbeddingItemHandler(fields)
+    else:
+        item_handler = DEFAULT_COLLECTION_ITEM_HANDLER
+
     (batch, per_batch, skip) = get_batch_parms(request)
     sort_string = request.GET.get('sort', None)
     mongo_sort = sortutil.sort_string_to_mongo(sort_string)
-    result = context.get_children_and_total(spec=spec, sort=mongo_sort, skip=skip, limit=per_batch)
+    result = context.get_children_and_total(spec=spec, sort=mongo_sort, skip=skip, limit=per_batch, fields=fields)
     total_items = result['total']
     total_batches = total_items / per_batch
     if total_items % per_batch: total_batches += 1
@@ -279,15 +323,19 @@ def collection_get(context, request, spec=None, item_handler=DEFAULT_COLLECTION_
         per_batch = per_batch,
         sort = sort_string,
     )
+    if fields:
+        ret['_summary']['fields'] = fields
     if isinstance(context, resources.collection.NamingCollection):
         create_method = 'PUT'
     else:
         create_method = 'POST'
     ret['_factory'] = dict(method=create_method, schemas=context.get_object_types())
     query_dict = {}
-    query_dict.update(request.GET)
+    query_dict.update(request.GET.dict_of_lists())
+    view_name = request.view_name
+    if view_name: view_name = '@@'+view_name
     ret['_links'] = dict(
-        self = dict(href=request.resource_url(context, query=query_dict)),
+        self = dict(href=request.resource_url(context, view_name, query=query_dict)),
         curie = get_curie(context, request),
         collection = dict(href=request.resource_url(context.__parent__)),
     )
