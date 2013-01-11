@@ -30,6 +30,10 @@ Alpha
 Maybe?
 ======
 
+[ ] Implement some sort of auto-naming collection and/or object subclasses.
+    Such collections should use POST instead of PUT for new object creation
+    (like the base Collection).
+
 [ ] Rethink use of request throughout resource classes... can we ditch
     it?  grep request resources/*.py
     *** One the other hand... having access to the request would be handy 
