@@ -1,9 +1,10 @@
-from bson.objectid import ObjectId
+from collections import OrderedDict
+import datetime
 from os.path import basename
+from bson.objectid import ObjectId
 import pyes
 from audrey import dateutil
 from audrey import sortutil
-from collections import OrderedDict
 from audrey.resources.file import File
 
 class Root(object):
@@ -203,9 +204,14 @@ i       :param fields: like ``fields`` param to :meth:`audrey.resources.collecti
         mimetype = fieldstorage.headers.get('content-type')
         return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents)
 
-    # FIXME: add a method to purge orphaned files (files where parents=[])
-    # that were modified more than some cutoff ago (cutoff should be
-    # an argument with a sane default... like 24 hrs).
+    def purge_orphaned_gridfs_files(self, cutoff_hours=24):
+        cutoff = dateutil.utcnow() - datetime.timedelta(hours=cutoff_hours)
+        gridfs = self.get_gridfs()
+        old_ids = [item['_id'] for item in gridfs._GridFS__files.find(
+            {'parents':[], 'lastmodDate':{'$lt':cutoff}}, fields=[])]
+        for id in old_ids:
+            gridfs.delete(id)
+        return len(old_ids)
 
     def search_raw(self, query=None, doc_types=None, **query_parms):
         """ A thin wrapper around :meth:`pyes.ES.search_raw`
