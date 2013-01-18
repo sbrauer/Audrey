@@ -495,6 +495,17 @@ class Object(object):
             return None
         return reference.dereference(self)
 
+    def get_gridfs_file(self, file):
+        """ Return the GridFS file referred to by ``file``.
+
+        :param file: a file
+        :type file: :class:`audrey.resources.file.File` or ``None``
+        :rtype: :class:`gridfs.grid_file.GridOut` or ``None``
+        """
+        if file is None:
+            return None
+        return file.get_gridfs_file(self.request)
+
 class NamedObject(Object):
     """ A subclass of :class:`Object` that has an editable ``__name__`` 
     attribute.
