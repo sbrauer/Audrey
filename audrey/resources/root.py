@@ -132,7 +132,7 @@ class Root(object):
         """
         return self.request.registry.settings['elastic_name']
 
-    def get_object_for_collection_and_id(self, collection_name, id):
+    def get_object_for_collection_and_id(self, collection_name, id, fields=None):
         """ Return the Object identified by the given ``collection_name``
         and ``id``.
 
@@ -141,22 +141,24 @@ class Root(object):
         :param id: an ObjectId
         :type id: :class:`bson.objectid.ObjectId`
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
+i       :param fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         """
         coll = self.get_collection(collection_name)
         if coll is None:
             return None
-        return coll.get_child_by_id(id)
+        return coll.get_child_by_id(id, fields=fields)
 
-    def get_object_for_reference(self, reference):
+    def get_object_for_reference(self, reference, fields=None):
         """ Return the Object identified by the given ``reference``.
 
         :param reference: a reference
         :type reference: :class:`audrey.resources.reference.Reference`
+i       :param fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
         """
         if reference is None:
             return None
-        return self.get_object_for_collection_and_id(reference.collection, reference.id)
+        return self.get_object_for_collection_and_id(reference.collection, reference.id, fields=fields)
 
     def serve_gridfs_file_for_id(self, id):
         """ Attempt to serve the GridFS file referred to by ``id``.
@@ -246,19 +248,21 @@ class Root(object):
                 del query_parms[key]
         return econn.search_raw(query or {}, indices=(self.get_elastic_index_name(),), doc_types=doc_types, **query_parms)
 
-    def get_objects_and_highlights_for_raw_search_results(self, results):
+    def get_objects_and_highlights_for_raw_search_results(self, results, object_fields=None):
         """ Given a ``pyes`` result dictionary (such as returned by
         :meth:`search_raw`) return a new dictionary with the keys:
 
         * "total": total number of matching hits
         * "took": search time in ms
         * "items": a list of dictionaries, each with the keys "object" and highlight"
+
+i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         """
         items = []
         for hit in results['hits']['hits']:
             _id = ObjectId(hit['_id'])
             collection_name = hit['_type']
-            obj = self.get_object_for_collection_and_id(collection_name, _id)
+            obj = self.get_object_for_collection_and_id(collection_name, _id, fields=object_fields)
             if obj:
                 items.append(dict(object=obj, highlight=hit.get('highlight')))
         return dict(
@@ -267,33 +271,35 @@ class Root(object):
             took = results['took'],
         )
 
-    def get_objects_for_raw_search_results(self, results):
+    def get_objects_for_raw_search_results(self, results, object_fields=None):
         """ Given a ``pyes`` result dictionary (such as returned by
         :meth:`search_raw`) return a new dictionary with the keys:
 
         * "total": total number of matching hits
         * "took": search time in ms
         * "items": a list of :class:`audrey.resources.object.Object` instances
+
+i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         """
-        ret = self.get_objects_and_highlights_for_raw_search_results(results)
+        ret = self.get_objects_and_highlights_for_raw_search_results(results, object_fields=object_fields)
         ret['items'] = [item['object'] for item in ret['items']]
         return ret
 
-    def get_objects_and_highlights_for_query(self, query=None, doc_types=None, **query_parms):
+    def get_objects_and_highlights_for_query(self, query=None, doc_types=None, object_fields=None, **query_parms):
         """ A convenience method that returns the result of calling 
         :meth:`get_objects_and_highlights_for_raw_search_results`
         on :meth:`search_raw` with the given parameters.
         """
-        return self.get_objects_and_highlights_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
+        return self.get_objects_and_highlights_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms), object_fields=object_fields)
 
-    def get_objects_for_query(self, query=None, doc_types=None, **query_parms):
+    def get_objects_for_query(self, query=None, doc_types=None, object_fields=None, **query_parms):
         """ A convenience method that returns the result of calling 
         :meth:`get_objects_for_raw_search_results`
         on :meth:`search_raw` with the given parameters.
         """
-        return self.get_objects_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms))
+        return self.get_objects_for_raw_search_results(self.search_raw(query=query, doc_types=doc_types, **query_parms), object_fields=object_fields)
 
-    def basic_fulltext_search(self, search_string='', collection_names=None, skip=0, limit=10, sort=None, highlight_fields=None):
+    def basic_fulltext_search(self, search_string='', collection_names=None, skip=0, limit=10, sort=None, highlight_fields=None, object_fields=None):
         """ A functional basic full text search.
         Also a good example of using the other search methods.
 
@@ -312,6 +318,7 @@ class Root(object):
         :type sort: string or ``None``
         :param highlight_fields: a list of Elastic mapping fields in which to highlight ``search_string`` matches. For example, to highlight matches in Audrey's default full "text" field: ``['text']``
         :type highlight_fields: list of strings, or ``None``
+i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         :rtype: dictionary
 
         Returns a dictionary like :meth:`get_objects_and_highlights_for_raw_search_results` when ``highlight_fields``.  Otherwise returns a dictionary like :meth:`get_objects_for_raw_search_results`.
@@ -330,7 +337,7 @@ class Root(object):
                 search.add_highlight(hf)
         elastic_sort = sort and sortutil.sort_string_to_elastic(sort) or None
         method = highlight_fields and self.get_objects_and_highlights_for_query or self.get_objects_for_query
-        return method(query=search, doc_types=collection_names, sort=elastic_sort)
+        return method(query=search, doc_types=collection_names, sort=elastic_sort, object_fields=object_fields)
 
     def clear_elastic(self):
         """ Delete all documents from Elastic for all Collections.

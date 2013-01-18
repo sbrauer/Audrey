@@ -46,6 +46,8 @@ def str_to_list(s, default=None):
         return default
     return s.split(',')
 
+# FIXME: consider ditching all these handler classes???
+
 # FIXME: replace with an interface?
 class ItemHandler(object):
     def get_property(self):
@@ -83,6 +85,19 @@ class LinkingSearchItemHandler(LinkingItemHandler):
                 href=request.resource_url(object),
                 title=object.get_title())
         if highlight: ret['highlight'] = highlight
+        return ret
+
+class EmbeddingSearchItemHandler(EmbeddingItemHandler):
+    def handle_item(self, context, request):
+        # Context may be either an object or a dict with object and highlight.
+        if type(context) == dict:
+            object = context['object']
+            highlight = context['highlight']
+        else:
+            object = context
+            highlight = None
+        ret = EmbeddingItemHandler.handle_item(self, context, request)
+        if highlight: ret['_highlight'] = highlight
         return ret
 
 class LinkingReferenceHandler(ItemHandler):
@@ -134,6 +149,7 @@ def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDL
             name=str(f._id),
             href=request.resource_url(context, '@@download', str(f._id)),
             type=f.get_gridfs_file(request).content_type,
+            length=f.get_gridfs_file(request).length,
         ) for f in context.get_all_files()]
     if file_links: ret['_links']['audrey:file'] = file_links
     references = [reference_handler.handle_item(obj, request) for obj in context.get_all_referenced_objects()]
@@ -229,7 +245,7 @@ def root_get(context, request):
         self = dict(href=request.resource_url(context)),
         curie = get_curie(context, request),
         item = [dict(name=c.__name__, href=request.resource_url(c)+"{?embed,fields,sort}", templated=True) for c in context.get_collections()],
-        search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&collections,sort}", templated=True),
+        search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&collections,embed,fields,sort}", templated=True),
     )
     ret['_links']['audrey:upload'] = dict(href=request.resource_url(context, '@@upload'))
     request.response.content_type = 'application/hal+json'
@@ -260,7 +276,15 @@ def file_serve(context, request):
     return context.serve(request)
 
 
-def root_search(context, request, highlight_fields=None, item_handler=DEFAULT_SEARCH_ITEM_HANDLER):
+def root_search(context, request, highlight_fields=None):
+    embed = str_to_bool(request.GET.get('embed'), False)
+    fields = None
+    if embed:
+        fields = str_to_list(request.GET.get('fields'))
+        item_handler = EmbeddingSearchItemHandler(fields)
+    else:
+        item_handler = DEFAULT_SEARCH_ITEM_HANDLER
+
     (batch, per_batch, skip) = get_batch_parms(request)
     sort = request.GET.get('sort', None)
     q = request.GET.get('q', None)

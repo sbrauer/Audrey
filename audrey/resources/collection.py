@@ -193,14 +193,16 @@ class Collection(object):
         doc = self.get_mongo_collection().find_one(dict(_id=id), fields=[])
         return doc is not None
 
-    def get_child_by_id(self, id):
+    def get_child_by_id(self, id, fields=None):
         """ Return the child object for the given ``id``.
 
         :param id: an ObjectId
         :type id: :class:`bson.objectid.ObjectId`
+        :param fields: a list of field names to retrieve or ``None`` for all fields.  May also be a dict to exclude fields (example: ``fields={'body':False}``).
+        :type fields: list of strings or dict with boolean values or ``None``
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
         """
-        doc = self.get_mongo_collection().find_one(dict(_id=id))
+        doc = self.get_mongo_collection().find_one(dict(_id=id), fields=fields)
         if doc is None:
             return None
         return self.construct_child_from_mongo_doc(doc)
@@ -225,16 +227,18 @@ class Collection(object):
         else:
             return False
 
-    def get_child_by_name(self, name):
+    def get_child_by_name(self, name, fields=None):
         """ Return the child object for the given ``name``.
 
         :param name: an object name
         :type name: string
+        :param fields: a list of field names to retrieve or ``None`` for all fields.  May also be a dict to exclude fields (example: ``fields={'body':False}``).
+        :type fields: list of strings or dict with boolean values or ``None``
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
         """
         id = self._str_to_id(name)
         if id:
-            return self.get_child_by_id(id)
+            return self.get_child_by_id(id, fields=fields)
         else:
             return None
 
@@ -345,7 +349,7 @@ class Collection(object):
         """
         return self.get_child_names_and_total(spec, sort, skip, limit)['items']
 
-    def get_children_lazily(self, spec=None, sort=None):
+    def get_children_lazily(self, spec=None, sort=None, fields=None):
         """ Return child objects matching the query parameters using a generator.
         Great when you want to iterate over a potentially large number of children
         and don't want to load them all into memory at once.
@@ -354,9 +358,11 @@ class Collection(object):
         :type spec: dictionary or ``None``
         :param sort: a MongoDB sort parameter
         :type sort: a list of (key, direction) tuples or ``None``
+        :param fields: a list of field names to retrieve or ``None`` for all fields.  May also be a dict to exclude fields (example: ``fields={'body':False}``).
+        :type fields: list of strings or dict with boolean values or ``None``
         :rtype: a generator of :class:`audrey.resources.object.Object` instances
         """
-        cursor = self.get_mongo_collection().find(spec=spec, sort=sort)
+        cursor = self.get_mongo_collection().find(spec=spec, sort=sort, fields=fields)
         for doc in cursor:
             obj = self.construct_child_from_mongo_doc(doc)
             yield obj
@@ -489,8 +495,8 @@ class NamingCollection(Collection):
         doc = self.get_mongo_collection().find_one({self._NAME_FIELD: name}, fields=[])
         return doc is not None
 
-    def get_child_by_name(self, name):
-        doc = self.get_mongo_collection().find_one({self._NAME_FIELD: name})
+    def get_child_by_name(self, name, fields=None):
+        doc = self.get_mongo_collection().find_one({self._NAME_FIELD: name}, fields=fields)
         if doc is None:
             return None
         return self.construct_child_from_mongo_doc(doc)
