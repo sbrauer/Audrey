@@ -353,13 +353,11 @@ Another 400 error and another "error" message.  Since this one's a validation er
 Now let's upload a photo::
 
     $ curl -F file=@audrey.jpg http://127.0.0.1:6543/@@upload
-    {"file": {"FileId": "50d8a64bbf90af0d7169df5e"}}
+    {"file": [{"FileId": "50d8a64bbf90af0d7169df5e"}]}
 
 The server creates a GridFS file in MongoDB for each file from the request
-and responds with a JSON document containing the ID of each file using as
-keys the same parameter names you used in the request.  (In other words,
-if you were to upload two files with the parameter names "foo" and "bar"
-then the response would have two FileIds with the keys "foo" and "bar".)
+and responds with a JSON document containing a list of the file ObjectIds
+for each parameter name from the request.
 
 Let's update Audrey Horne's record with the new photo file::
 

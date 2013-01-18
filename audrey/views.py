@@ -255,7 +255,10 @@ def root_upload(context, request):
     ret = {}
     for (name, val) in request.POST.items():
         if hasattr(val, 'filename'):
-            ret[name] = context.create_gridfs_file_from_fieldstorage(val)
+            file = context.create_gridfs_file_from_fieldstorage(val)
+            if name not in ret:
+                ret[name] = []
+            ret[name].append(file)
     return ret
 
 def root_download(context, request):
