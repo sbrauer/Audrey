@@ -184,7 +184,7 @@ i       :param fields: like ``fields`` param to :meth:`audrey.resources.collecti
         """
         if parents is None: parents = []
         # FIXME: if image, get dimensions (via PIL?) and store as two custom attributes (width and height)
-        return File(self.get_gridfs().put(file, filename=filename, contentType=mimetype, parents=parents))
+        return File(self.get_gridfs().put(file, filename=filename, contentType=mimetype, parents=parents, lastmodDate=dateutil.utcnow()))
 
     def create_gridfs_file_from_fieldstorage(self, fieldstorage, parents=None):
         """ Create a new GridFS file from the given ``fieldstorage``.
@@ -201,7 +201,7 @@ i       :param fields: like ``fields`` param to :meth:`audrey.resources.collecti
         filename = basename(filename.replace('\\', '/'))
         # FIXME: instead of trusting client's content-type, use python-magic to determine type server-side?
         mimetype = fieldstorage.headers.get('content-type')
-        return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents, lastmodDate=dateutil.utcnow())
+        return self.create_gridfs_file(fieldstorage.file, filename, mimetype, parents)
 
     # FIXME: add a method to purge orphaned files (files where parents=[])
     # that were modified more than some cutoff ago (cutoff should be
