@@ -1,7 +1,8 @@
 import colander
 import webob
+from pyramid.encode import urlencode
 from pyramid.httpexceptions import HTTPNotFound
-from pyramid.traversal import find_root
+from pyramid.traversal import find_root, resource_path
 import resources
 from exceptions import Veto
 import sortutil
@@ -13,12 +14,25 @@ DEFAULT_BATCH_SIZE = 20
 MAX_BATCH_SIZE = 100
 SCHEMA_CONVERTER = AudreySchemaConverter()
 
+def get_href(context, *elements, **kw):
+    #return context.request.resource_url(context, *elements, **kw)
+    path = resource_path(context)
+    if elements:
+        if path[-1] != '/':
+            path += '/'
+        path += '/'.join(elements)
+    if 'query' in kw:
+        query = kw['query']
+        if query:
+            return '%s?%s' % (path, urlencode(query, doseq=True))
+    return path
+
 def get_curie(context, request):
     # Return a "curie" object to namespace our HAL+JSON links.
     root = find_root(context)
     return dict(
         name='audrey',
-        href="%srelations/{rel}" % request.resource_url(root),
+        href="%srelations/{rel}" % get_href(root),
         templated=True,
     )
 
@@ -68,7 +82,7 @@ class LinkingItemHandler(ItemHandler):
         return "_links"
     def handle_item(self, context, request):
         return dict(name=context.__name__,
-                    href=request.resource_url(context),
+                    href=get_href(context),
                     title=context.get_title())
 
 class LinkingSearchItemHandler(LinkingItemHandler):
@@ -82,7 +96,7 @@ class LinkingSearchItemHandler(LinkingItemHandler):
             highlight = None
         ret = dict(
                 name="%s:%s" % (object.__parent__.__name__, object.__name__),
-                href=request.resource_url(object),
+                href=get_href(object),
                 title=object.get_title())
         if highlight: ret['highlight'] = highlight
         return ret
@@ -105,7 +119,7 @@ class LinkingReferenceHandler(ItemHandler):
         return "_links"
     def handle_item(self, context, request):
         return dict(name=str(context._id),
-                    href=request.resource_url(context),
+                    href=get_href(context),
                     title=context.get_title())
 
 DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
@@ -130,6 +144,8 @@ def collection_options(context, request):
 def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER, fields=None, include_meta_links=False):
     if fields is None:
         ret = context.get_all_values()
+        if '_etag' in ret:
+            del ret['_etag']
     else:
         ret = {}
         for name in fields:
@@ -139,15 +155,15 @@ def represent_object(context, request, reference_handler=DEFAULT_REFERENCE_HANDL
     if (fields is None) or ('_title' in fields):
         ret['_title'] = context.get_title()
 
-    ret['_links'] = dict(self = dict(href=request.resource_url(context)))
+    ret['_links'] = dict(self = dict(href=get_href(context)))
     if include_meta_links:
         ret['_links']['curie'] = get_curie(context, request)
-        ret['_links']['collection'] = dict(href=request.resource_url(context.__parent__))
-        ret['_links']['describedby'] = dict(href=request.resource_url(context.__parent__, '@@schema', context._object_type))
+        ret['_links']['collection'] = dict(href=get_href(context.__parent__))
+        ret['_links']['describedby'] = dict(href=get_href(context.__parent__, '@@schema', context._object_type))
     file_links= [
         dict(
             name=str(f._id),
-            href=request.resource_url(context, '@@download', str(f._id)),
+            href=get_href(context, '@@download', str(f._id)),
             type=f.get_gridfs_file(request).content_type,
             length=f.get_gridfs_file(request).length,
         ) for f in context.get_all_files()]
@@ -242,12 +258,12 @@ def collection_rename(context, request):
 def root_get(context, request):
     ret = {}
     ret['_links'] = dict(
-        self = dict(href=request.resource_url(context)),
+        self = dict(href=get_href(context)),
         curie = get_curie(context, request),
-        item = [dict(name=c.__name__, href=request.resource_url(c)+"{?embed,fields,sort}", templated=True) for c in context.get_collections()],
-        search = dict(href=request.resource_url(context, '@@search')+"?q={q}{&collections,embed,fields,sort}", templated=True),
+        item = [dict(name=c.__name__, href=get_href(c)+"{?embed,fields,sort}", templated=True) for c in context.get_collections()],
+        search = dict(href=get_href(context, '@@search')+"?q={q}{&collections,embed,fields,sort}", templated=True),
     )
-    ret['_links']['audrey:upload'] = dict(href=request.resource_url(context, '@@upload'))
+    ret['_links']['audrey:upload'] = dict(href=get_href(context, '@@upload'))
     request.response.content_type = 'application/hal+json'
     return ret
 
@@ -310,14 +326,14 @@ def root_search(context, request, highlight_fields=None):
     query_dict = {}
     query_dict.update(request.GET)
     ret['_links'] = dict(
-        self = dict(href=request.resource_url(context, '@@search', query=query_dict)),
+        self = dict(href=get_href(context, '@@search', query=query_dict)),
     )
     if batch > 1:
         query_dict['batch'] = batch-1
-        ret['_links']['prev'] = dict(href=request.resource_url(context, '@@search', query=query_dict))
+        ret['_links']['prev'] = dict(href=get_href(context, '@@search', query=query_dict))
     if batch < total_batches:
         query_dict['batch'] = batch+1
-        ret['_links']['next'] = dict(href=request.resource_url(context, '@@search', query=query_dict))
+        ret['_links']['next'] = dict(href=get_href(context, '@@search', query=query_dict))
 
     if item_handler.get_property() == '_embedded':
         ret['_embedded'] = {}
@@ -362,19 +378,19 @@ def collection_get(context, request, spec=None):
     view_name = request.view_name
     if view_name: view_name = '@@'+view_name
     ret['_links'] = dict(
-        self = dict(href=request.resource_url(context, view_name, query=query_dict)),
+        self = dict(href=get_href(context, view_name, query=query_dict)),
         curie = get_curie(context, request),
-        collection = dict(href=request.resource_url(context.__parent__)),
+        collection = dict(href=get_href(context.__parent__)),
     )
-    ret['_links']['audrey:schema'] = [dict(name=x, href=request.resource_url(context, '@@schema', x)) for x in context.get_object_types()]
+    ret['_links']['audrey:schema'] = [dict(name=x, href=get_href(context, '@@schema', x)) for x in context.get_object_types()]
     if isinstance(context, resources.collection.NamingCollection):
-        ret['_links']['audrey:rename'] = dict(href=request.resource_url(context, '@@rename'))
+        ret['_links']['audrey:rename'] = dict(href=get_href(context, '@@rename'))
     if batch > 1:
         query_dict['batch'] = batch-1
-        ret['_links']['prev'] = dict(href=request.resource_url(context, query=query_dict))
+        ret['_links']['prev'] = dict(href=get_href(context, query=query_dict))
     if batch < total_batches:
         query_dict['batch'] = batch+1
-        ret['_links']['next'] = dict(href=request.resource_url(context, query=query_dict))
+        ret['_links']['next'] = dict(href=get_href(context, query=query_dict))
 
     if item_handler.get_property() == '_embedded':
         ret['_embedded'] = {}
