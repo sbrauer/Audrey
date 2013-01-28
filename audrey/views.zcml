@@ -1,5 +1,27 @@
 <configure xmlns="http://pylonshq.com/pyramid">
 
+<!--
+Fall back view configs that result in a 405 Method Not Allowed response.
+-->
+  <view
+     context=".resources.object.Object"
+     view=".views.method_not_allowed"
+     renderer="json"
+     />
+  <view
+     context=".resources.collection.Collection"
+     view=".views.method_not_allowed"
+     renderer="json"
+     />
+  <view
+     context=".resources.root.Root"
+     view=".views.method_not_allowed"
+     renderer="json"
+     />
+<!--
+End of 405 fallbacks
+-->
+
   <view
      context=".resources.root.Root"
      name="search"

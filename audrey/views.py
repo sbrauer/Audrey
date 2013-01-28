@@ -126,6 +126,10 @@ DEFAULT_COLLECTION_ITEM_HANDLER = LinkingItemHandler()
 DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 DEFAULT_REFERENCE_HANDLER = LinkingReferenceHandler()
 
+def method_not_allowed(context, request):
+    request.response.status_int = 405 # Method Not Allowed
+    return dict(error="%s not supported by this resource." % request.method)
+
 def object_options(context, request):
     request.response.allow = "HEAD,GET,OPTIONS,PUT,DELETE"
     request.response.status_int = 204 # No Content
@@ -203,6 +207,7 @@ def test_preconditions(context, request):
 def object_put(context, request):
     # Update an existing object.
     # On success, response is an empty body (204).
+    # FIXME: on success, include new Last-Modified and Etag headers
     # On failure, response is simple application/json document
     # with an "error" key containing an error message string.
     # In the event of schema validation errors, there will also be an "errors"
