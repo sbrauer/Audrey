@@ -207,7 +207,6 @@ def test_preconditions(context, request):
 def object_put(context, request):
     # Update an existing object.
     # On success, response is an empty body (204).
-    # FIXME: on success, include new Last-Modified and Etag headers
     # On failure, response is simple application/json document
     # with an "error" key containing an error message string.
     # In the event of schema validation errors, there will also be an "errors"
@@ -229,6 +228,8 @@ def object_put(context, request):
     # We just validated the schema, so no need to do it again.
     context.save(validate_schema=False)
     request.response.status_int = 204 # No Content
+    request.response.etag = context._etag
+    request.response.last_modified = context._modified
     request.response.location = request.resource_url(context)
 
 def object_delete(context, request):
