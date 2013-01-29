@@ -2,18 +2,30 @@
   var HAL = {
     Models: {},
     Views: {},
-    currentDocument: {}
+    currentDocument: {},
+    jsonIndent: 2,
   };
 
   HAL.client = function(opts) {
     this.vent = opts.vent;
+    this.headers = HAL.parseHeaders($('#request-headers').val());
     this.get = function(url) {
       var self = this;
       this.vent.trigger('location-change', { url: url });
-      var jqxhr = $.getJSON(url, function(resource) {
-        self.vent.trigger('response', { resource: resource });
+      var jqxhr = $.ajax({
+        url: url,
+        dataType: 'json',
+        headers: this.headers,
+        success: function(resource, textStatus, jqXHR) {
+          self.vent.trigger('response', { 
+            resource: resource,
+            headers: jqXHR.getAllResponseHeaders()
+          });
+        }
       }).error(function() {
         self.vent.trigger('fail-response', { jqxhr: jqxhr });
+      }).always(function() {
+        self.vent.trigger('response-headers', { jqxhr: jqxhr });
       });
     };
   };
@@ -73,12 +85,14 @@
           _.each(obj, function(resource, i) {
             var newResource = new HAL.Models.Resource(resource);
             newResource.identifier = rel + '[' + i + ']';
+            newResource.embed_rel = rel;
             arr.push(newResource);
           });
           result[rel] = arr;
         } else {
           var newResource = new HAL.Models.Resource(obj);
           newResource.identifier = rel;
+          newResource.embed_rel = rel;
           result[rel] = newResource;
         }
       });
@@ -92,6 +106,15 @@
       this.vent = opts.vent;
       this.locationBar = new HAL.Views.LocationBar({ el: this.$('#location-bar'), vent: this.vent });
       this.resourceView = new HAL.Views.Resource({ el: this.$('#current-resource'), vent: this.vent });
+    },
+
+    events: {
+      'blur #request-headers': 'updateRequestHeaders'
+    },
+
+    updateRequestHeaders: function(e) {
+      var headers = HAL.parseHeaders(this.$('#request-headers').val());
+      $.ajaxSetup({ headers: headers });
     }
   });
 
@@ -107,8 +130,7 @@
         self.render(new HAL.Models.Resource(e.resource));
       });
       this.vent.bind('fail-response', function(e) {
-        self.vent.trigger('response', { resource: null });
-        self.showFailedRequest(e.jqxhr);
+        self.vent.trigger('response', { resource: null, jqxhr: e.jqxhr });
       });
     },
 
@@ -128,10 +150,6 @@
       $embres.html(this.renderEmbeddedResources(resource.embeddedResources));
       $embres.accordion();
       return this;
-    },
-
-    showFailedRequest: function(jqxhr) {
-      this.$el.html(this.failedRequestTemplate({ jqxhr: jqxhr }));
     },
 
     followLink: function(e) {
@@ -188,14 +206,16 @@
             result += self.embeddedResourceTemplate({
               state: resource.toJSON(),
               links: resource.links,
-              name: resource.identifier
+              name: resource.identifier,
+              embed_rel: resource.embed_rel
             });
           });
         } else {
           result += self.embeddedResourceTemplate({
             state: obj.toJSON(),
             links: obj.links,
-            name: obj.identifier
+            name: obj.identifier,
+            embed_rel: obj.embed_rel
           });
         }
       });
@@ -203,8 +223,6 @@
     },
 
     template: _.template($('#resource-template').html()),
-
-    failedRequestTemplate: _.template($('#failed-request-template').html()),
 
     embeddedResourceTemplate: _.template($('#embedded-resource-template').html())
   });
@@ -230,16 +248,45 @@
       this.vent = opts.vent;
       _.bindAll(this, 'showDocs');
       _.bindAll(this, 'showRawResource');
+      _.bindAll(this, 'showResponseHeaders');
       this.vent.bind('show-docs', this.showDocs);
       this.vent.bind('response', this.showRawResource);
+      this.vent.bind('response-headers', this.showResponseHeaders);
+    },
+
+    responseHeadersTemplate: _.template($('#response-headers-template').html()),
+
+    showResponseHeaders: function(e) {
+      this.$('.header-panel').html(this.responseHeadersTemplate({ jqxhr: e.jqxhr }));
     },
 
     showDocs: function(e) {
-      this.$('.panel').html('<iframe src=' + e.url + '></iframe>');
+      this.$('.body-panel').html('<iframe src=' + e.url + '></iframe>');
     },
 
     showRawResource: function(e) {
-      this.$('.panel').html('<pre>' + JSON.stringify(e.resource, null, 2) + '</pre>');
+      var output = 'n/a';
+      if(e.resource !== null) {
+        output = JSON.stringify(e.resource, null, HAL.jsonIndent);
+      } else {
+        // The Ajax request "failed", but there may still be an
+        // interesting response body (possibly JSON) to show.
+        var content_type = e.jqxhr.getResponseHeader('content-type');
+        var responseText = e.jqxhr.responseText;
+        if(content_type.indexOf('json') != -1) {
+          // Looks like json... try to parse it.
+          try {
+            var obj = JSON.parse(responseText);
+            output = JSON.stringify(obj, null, HAL.jsonIndent);
+          } catch (err) {
+            // JSON parse failed. Just show the raw text.
+            output = _.escape(responseText);
+          }
+        } else if(content_type.indexOf('text/') == 0) {
+          output = _.escape(responseText);
+        }
+      }
+      this.$('.body-panel').html('<pre>' + output + '</pre>');
     }
   });
 
@@ -302,24 +349,13 @@
     },
 
     headers: function() {
-      var header_lines = this.$('.headers').val().split("\n");
-      var headers = {};
-      _.each(header_lines, function(line) {
-        var parts = line.split(':');
-        if (parts.length > 1) {
-          var name = parts.shift().trim();
-          var value = parts.join(':').trim();
-          headers[name] = value;
-        }
-      });
-      return headers;
+      return HAL.parseHeaders(this.$('.headers').val());
     },
 
     submitQuery: function(e) {
       e.preventDefault();
       var self = this;
       var headers = this.headers();
-      console.log(headers);
       var method = this.$('.method').val();
       var body = this.$('.body').val();
       var jqxhr = $.ajax({
@@ -333,6 +369,7 @@
       }).fail(function(response) {
         self.vent.trigger('fail-response', { jqxhr: jqxhr });
       }).always(function() {
+        self.vent.trigger('response-headers', { jqxhr: jqxhr });
         self.vent.trigger('location-change', { url: self.href });
         window.location.hash = 'NON-GET:' + self.href;
       });
@@ -340,7 +377,7 @@
     },
 
     render: function() {
-      this.$el.html(this.template({ href: this.href }));
+      this.$el.html(this.template({ href: this.href, user_defined_headers: $('#request-headers').val() }));
       return this;
     },
 
@@ -369,6 +406,20 @@
     } else {
       return rel;
     }
+  };
+
+  HAL.parseHeaders = function(string) {
+    var header_lines = string.split("\n");
+    var headers = {};
+    _.each(header_lines, function(line) {
+      var parts = line.split(':');
+      if (parts.length > 1) {
+        var name = parts.shift().trim();
+        var value = parts.join(':').trim();
+        headers[name] = value;
+      }
+    });
+    return headers;
   };
 
   window.HAL = HAL;
