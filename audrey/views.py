@@ -276,8 +276,8 @@ def root_get(context, request):
     ret['_links'] = dict(
         self = dict(href=get_href(context)),
         curie = get_curie(context, request),
-        item = [dict(name=c.__name__, href=get_href(c)+"{?embed,fields,sort}", templated=True) for c in context.get_collections()],
-        search = dict(href=get_href(context, '@@search')+"?q={q}{&collections,embed,fields,sort}", templated=True),
+        item = [dict(name=c.__name__, href=get_href(c)+"{?embed,fields,sort,per_batch}", templated=True) for c in context.get_collections()],
+        search = dict(href=get_href(context, '@@search')+"?q={q}{&collections,embed,fields,sort,per_batch}", templated=True),
     )
     ret['_links']['audrey:upload'] = dict(href=get_href(context, '@@upload'))
     request.response.content_type = 'application/hal+json'
