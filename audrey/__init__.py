@@ -10,6 +10,12 @@ import datetime
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 
+# TODO: After pyramid_zcml 0.9.3 is out, require that version as min,
+# and remove this monkey business.
+# See https://github.com/Pylons/pyramid_zcml/pull/5/files
+from audrey.monkey import patch_zcml_view
+patch_zcml_view()
+
 def audrey_main(root_factory, root_cls, global_config, **settings):
     """ This function returns a Pyramid WSGI application.
     """

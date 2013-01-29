@@ -37,6 +37,7 @@ def patched_view(
         path_info=path_info, custom_predicates=custom_predicates,
         decorator=decorator, mapper=mapper)
 
-def patch_view():
+def patch_zcml_view():
     """ Replace pyramid_zcml 0.9.2 view function """
-    pyramid_zcml.view = patched_view
+    if pyramid_zcml.view.func_defaults == (None, None, None, '', None, None, None, None, None, None, None, None, False, None, None, None, None, None, None, (), None, True):
+        pyramid_zcml.view = patched_view
