@@ -15,7 +15,10 @@ MAX_BATCH_SIZE = 100
 SCHEMA_CONVERTER = AudreySchemaConverter()
 
 def get_href(context, *elements, **kw):
+    # Return absolute url:
     #return context.request.resource_url(context, *elements, **kw)
+
+    # Return url starting with '/':
     path = resource_path(context)
     if elements:
         if path[-1] != '/':
@@ -35,6 +38,17 @@ def get_curie(context, request):
         href="%srelations/{rel}" % get_href(root),
         templated=True,
     )
+
+def generic_response(request, status=200, error=None, **kwargs):
+    request.response.status_int = status
+    ret = dict(status=status)
+    if error:
+        ret['ok'] = False
+        ret['error'] = error
+    else:
+        ret['ok'] = True
+    ret.update(kwargs)
+    return ret
 
 def str_to_bool(s, default=None):
     """ Interpret the given string ``s`` as a boolean value.
@@ -127,8 +141,8 @@ DEFAULT_SEARCH_ITEM_HANDLER = LinkingSearchItemHandler()
 DEFAULT_REFERENCE_HANDLER = LinkingReferenceHandler()
 
 def method_not_allowed(context, request):
-    request.response.status_int = 405 # Method Not Allowed
-    return dict(error="%s not supported by this resource." % request.method)
+    return generic_response(request, 405,
+        "%s not supported by this resource." % request.method)
 
 def object_options(context, request):
     request.response.allow = "HEAD,GET,OPTIONS,PUT,DELETE"
@@ -187,28 +201,28 @@ def object_get(context, request, reference_handler=DEFAULT_REFERENCE_HANDLER):
     return represent_object(context, request, reference_handler=reference_handler, include_meta_links=True)
 
 def test_preconditions(context, request):
-    # Returns None on success, or a dictionary with an "error" key on failure.
+    # Returns None on success, or a dictionary on failure with ok, status, and error keys.
     # Also sets response status code on failure.
     # Possible failure statuses:
     # 412 Precondition Failed
+    error = None
     if_unmodified_since = request.headers.get('If-Unmodified-Since')
     if_match = request.headers.get('If-Match')
     if not (if_unmodified_since and if_match):
-        request.response.status_int = 412 # Precondition Failed
-        return dict(error='Requests must supply If-Unmodified-Since and If-Match headers.')
-    if if_match != ('"%s"' % context._etag):
-        request.response.status_int = 412 # Precondition Failed
-        return dict(error='If-Match header does not match current Etag.')
-    if if_unmodified_since != webob.datetime_utils.serialize_date(context._modified):
-        request.response.status_int = 412 # Precondition Failed
-        return dict(error='If-Unmodified-Since header does not match current modification timestamp.')
+        error='Requests must supply If-Unmodified-Since and If-Match headers.'
+    elif if_match != ('"%s"' % context._etag):
+        error='If-Match header does not match current Etag.'
+    elif if_unmodified_since != webob.datetime_utils.serialize_date(context._modified):
+        error='If-Unmodified-Since header does not match current modification timestamp.'
+    if error:
+        return generic_response(request, 412, error)
     return None
 
 def object_put(context, request):
     # Update an existing object.
-    # On success, response is an empty body (204).
-    # On failure, response is simple application/json document
-    # with an "error" key containing an error message string.
+    # Response body is simple application/json document with keys:
+    # "ok", "status", and optional "error" (when not ok).
+    # On success, response status is 200.
     # In the event of schema validation errors, there will also be an "errors"
     # key containing a dictionary mapping field names to error messages.
     # Possible failure statuses:
@@ -222,28 +236,26 @@ def object_put(context, request):
         deserialized = schema.deserialize(request.json_body)
     except colander.Invalid, e:
         errors = e.asdict()
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Validation failed.', errors=errors)
+        return generic_response(request, 400, 'Validation failed.', errors=errors)
     context.set_schema_values(**deserialized)
     # We just validated the schema, so no need to do it again.
     context.save(validate_schema=False)
-    request.response.status_int = 204 # No Content
     request.response.etag = context._etag
     request.response.last_modified = context._modified
     request.response.location = request.resource_url(context)
+    return generic_response(request)
 
 def object_delete(context, request):
     # Delete an existing object.
-    # On success, response is an empty body (204).
-    # On failure, response is simple application/json document
-    # with an "error" key containing an error message string.
+    # Response body is simple application/json document with keys:
+    # "ok", "status", and optional "error" (when not ok).
+    # On success, response status is 200.
     # Possible failure statuses:
-    # 403 Forbidden: Precondition headers (If-Unmodified-Since and If-Match) missing.
     # 412 Precondition Failed
     err = test_preconditions(context, request)
     if err: return err
     context.__parent__.delete_child(context)
-    request.response.status_int = 204 # No Content
+    return generic_response(request)
 
 def collection_rename(context, request):
     json_body = request.json_body
@@ -252,14 +264,12 @@ def collection_rename(context, request):
     try:
         context.rename_child(from_name, to_name)
     except Veto, e:
-        request.response.status_int = 400 # Bad Request
-        return dict(error=str(e))
+        return generic_response(request, 400, str(e))
     except KeyError, e:
-        request.response.status_int = 404 # Not Found
-        return dict(error=str(e))
+        return generic_response(request, 404, str(e))
     obj = context[to_name]
-    request.response.status_int = 204 # No Content
     request.response.location = request.resource_url(obj)
+    return generic_response(request)
 
 def root_get(context, request):
     ret = {}
@@ -274,7 +284,7 @@ def root_get(context, request):
     return ret
 
 def root_upload(context, request):
-    ret = {}
+    ret = generic_response(request)
     for (name, val) in request.POST.items():
         if hasattr(val, 'filename'):
             file = context.create_gridfs_file_from_fieldstorage(val)
@@ -299,7 +309,6 @@ def object_download(context, request):
 def file_serve(context, request):
     # Serve an audrey.resources.file.File
     return context.serve(request)
-
 
 def root_search(context, request, highlight_fields=None):
     embed = str_to_bool(request.GET.get('embed'), False)
@@ -409,8 +418,8 @@ def collection_post(context, request, __name__=None):
     # Create a new object/resource.
     # Request body should be a JSON document with
     # the new object's schema values (and _object_type).
-    # On success, return 201 Created with an empty body and Location
-    # header with url of new resource.
+    # On success, return 201 Created with Location
+    # header containing url of new resource.
     # On failure, response is simple application/json document
     # with an "error" key containing an error message string.
     # In the event of schema validation errors, there will also be an "errors"
@@ -423,32 +432,26 @@ def collection_post(context, request, __name__=None):
     if _object_type:
         object_class = context.get_object_class(_object_type)
     else:
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Request is missing _object_type.')
+        return generic_response(request, 400, 'Request is missing _object_type.')
     if object_class is None:
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Unsupported _object_type.')
+        return generic_response(request, 400, 'Unsupported _object_type.')
 
     schema = object_class.get_class_schema(request=request)
     try:
         deserialized = schema.deserialize(json_body)
     except colander.Invalid, e:
-        errors = e.asdict()
-        request.response.status_int = 400 # Bad Request
-        return dict(error='Validation failed.', errors=errors)
+        return generic_response(request, 400, 'Validation failed.', errors=e.asdict())
     obj = object_class(request, **deserialized)
     if __name__: obj.__name__ = __name__
     try:
         # We just validated the schema, so no need to do it again.
         context.add_child(obj, validate_schema=False)
     except Veto, e:
-        request.response.status_int = 400 # Bad Request
-        return dict(error=str(e))
+        return generic_response(request, 400, str(e))
 
-    request.response.status_int = 201 # Created
     request.response.location = request.resource_url(obj)
     # FIXME: Should the body contain a representation of the object?
-    return {}
+    return generic_response(request, 201)
 
 def collection_schema(context, request):
     # Serve a JSON Schema for an object_type (specified as first subpath item).
