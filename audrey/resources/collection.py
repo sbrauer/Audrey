@@ -510,13 +510,15 @@ class NamingCollection(Collection):
         :type name: string
         :rtype: string or ``None``
 
-        The default implementation of this method always returns ``None``.
         If you want to restrict the format of names (legal characters, etc)
         override this method to check the name and return an error if needed.
         
         Note that this method doesn't have to test whether
         the name is empty or already in use.
         """
+        # Check for conflict with Pyramid view prefix (the "goggles").
+        if name.startswith('@@'):
+            return "Names may not start with \"@@\"."
         return None
 
     def veto_child_name(self, name, unique=True):
