@@ -74,3 +74,21 @@ these classes with your own app-specific types, but for now just refer to them
 as you walk through the :ref:`resource-modelling` section and see how everything fits together.
 
 If you aren't running MongoDB and ElasticSearch on default ports on localhost (as described in the `Prerequisites`_ section above), edit ``development.ini`` and adjust the connection settings ``mongo_uri``, ``mongo_name``, ``elastic_uri`` and ``elastic_name``.
+
+Startup commands
+----------------
+
+You can now use the usual Pyramid commands, such as these examples.
+
+Start the web server::
+
+    pserve development.ini --reload
+
+Start an interactive shell::
+
+    pshell development.ini#main
+
+Run tests::
+
+    nosetests --cover-package=myproject --cover-erase --with-coverage --cover-html
+
