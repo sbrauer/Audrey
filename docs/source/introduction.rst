@@ -188,6 +188,9 @@ in your web browser.)  For our current purposes, I'll use curl and Python's supe
 .. note::
    These are just the default views that Audrey provides.  You can override and reconfigure to suit your needs, or ignore them entirely and create your own views from scratch.
 
+.. note::
+   This view-related documentation needs to be updated to reflect the current state of the views.  Everything described here will still work, but the responses may differ slightly.  For example, listing views have new "embed" and "fields" options which didn't appear in the templated urls described here.  Try out http://127.0.0.1:6543/people?embed=1 or http://127.0.0.1:6543/people?embed=1&fields=firstname,lastname
+
 This is a HAL+JSON document representing the root.  Since the root has no
 state of its own, the document just has a number of links keyed by link
 relation ("rel") names.  Besides "self" which is obligatory for HAL, Audrey
