@@ -46,7 +46,7 @@ Setup Audrey
        cd myenv
        source bin/activate
 
-2. Move the ``Audrey`` directory from Github into ``myenv``.
+2. Move or clone the ``Audrey`` directory from Github into ``myenv``.
    Then::
 
        cd Audrey
@@ -61,8 +61,9 @@ Setup Audrey
 Creating a new project
 ----------------------
 
-Audrey includes a scaffold to bootstrap a new project.  From the root directory of your virtualenv run the following::
+Audrey includes a scaffold to bootstrap a new project.  Run it from the root directory of your virtualenv like this example::
 
+    cd $VIRTUAL_ENV
     pcreate -s audrey MyProject
     cd MyProject
     python setup.py develop
