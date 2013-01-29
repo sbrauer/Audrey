@@ -209,7 +209,7 @@ def test_preconditions(context, request):
     if_unmodified_since = request.headers.get('If-Unmodified-Since')
     if_match = request.headers.get('If-Match')
     if not (if_unmodified_since and if_match):
-        error='Requests must supply If-Unmodified-Since and If-Match headers.'
+        error='Request must supply If-Unmodified-Since and If-Match headers.'
     elif if_match != ('"%s"' % context._etag):
         error='If-Match header does not match current Etag.'
     elif if_unmodified_since != webob.datetime_utils.serialize_date(context._modified):
