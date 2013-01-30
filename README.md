@@ -23,9 +23,9 @@ authorization, permissions, etc. A developer building on Audrey can
 make those decisions as appropriate for their app and implement
 them using standard Pyramid facilities.
 
-[Documentation at ReadTheDocs.org](https://audrey.readthedocs.org/)
+# Docs and Demo
 
-# Demo site
+[Documentation at ReadTheDocs.org](https://audrey.readthedocs.org/)
 
 Explore the default API views at
 [http://audreydemo.aws.af.cm/hal-browser/](http://audreydemo.aws.af.cm/hal-browser/)
