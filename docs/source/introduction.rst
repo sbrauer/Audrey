@@ -148,6 +148,8 @@ We've covered creating and updating objects.  Now let's delete one::
 .. note::
    ``Collection`` also has methods ``delete_child_by_id()`` and ``delete_child_by_name()``.  This introduction doesn't try to demonstrate every method and parameter.  Refer to the :doc:`api` section for more.
 
+.. _restful-views:
+
 Now let's switch our focus to the web api.  (If you're running locally, you can
 explore the api with HAL-browser by visiting http://127.0.0.1:6543/hal-browser/
 in your web browser.)  For our current purposes, I'll use curl and Python's super-handy json.tool::
