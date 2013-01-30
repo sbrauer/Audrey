@@ -25,5 +25,25 @@ them using standard Pyramid facilities.
 
 [Documentation at ReadTheDocs.org](https://audrey.readthedocs.org/)
 
+# Demo site
+
+Explore the default API views at
+[http://audreydemo.aws.af.cm/hal-browser/](http://audreydemo.aws.af.cm/hal-browser/)
+
+If you'd rather keep it old school:
+
+    curl http://audreydemo.aws.af.cm
+
+This is running with the example resource models that are setup
+when you use the Audrey scaffold. You may want to refer to the
+[documentation that introduces the RESTful views](https://audrey.readthedocs.org/en/latest/introduction.html#restful-views).
+(Please note that the demo doesn't have ElasticSearch enabled. I'll
+enable search once I find a free hosting solution.)
+
+The demo site uses free services from these great providers:
+
+-   [AppFog](https://www.appfog.com/)
+-   [MongoLab](https://mongolab.com/)
+
 
 

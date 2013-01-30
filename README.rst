@@ -7,7 +7,7 @@ My goal is to keep Audrey otherwise unopinionated.  For example, Audrey intentio
 `Documentation at ReadTheDocs.org <https://audrey.readthedocs.org/>`_
 
 Demo site
-=========
+---------
 
 Explore the default API views at http://audreydemo.aws.af.cm/hal-browser/
 
