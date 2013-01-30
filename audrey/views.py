@@ -277,8 +277,10 @@ def root_get(context, request):
         self = dict(href=get_href(context)),
         curie = get_curie(context, request),
         item = [dict(name=c.__name__, href=get_href(c)+"{?embed,fields,sort,per_batch}", templated=True) for c in context.get_collections()],
-        search = dict(href=get_href(context, '@@search')+"?q={q}{&collections,embed,fields,sort,per_batch}", templated=True),
     )
+    econn = context.get_elastic_connection()
+    if econn is not None:
+        ret['_links']['search'] = dict(href=get_href(context, '@@search')+"?q={q}{&collections,embed,fields,sort,per_batch}", templated=True)
     ret['_links']['audrey:upload'] = dict(href=get_href(context, '@@upload'))
     request.response.content_type = 'application/hal+json'
     return ret
@@ -311,6 +313,9 @@ def file_serve(context, request):
     return context.serve(request)
 
 def root_search(context, request, highlight_fields=None):
+    econn = context.get_elastic_connection()
+    if econn is None:
+        return generic_response(request, 501, 'Search is disabled.')
     embed = str_to_bool(request.GET.get('embed'), False)
     fields = None
     if embed:
