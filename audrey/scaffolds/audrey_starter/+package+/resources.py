@@ -28,18 +28,28 @@ class People(audrey.resources.collection.Collection):
     _collection_name = 'people'
     _object_classes = (Person,)
 
+# A deferred schema binding.  Used to populate the missing attribute
+# of Post.dateline at runtime.
+@colander.deferred
+def deferred_datetime_now(node, kw):
+    return audrey.dateutil.utcnow(zero_seconds=True)
+
 class Post(audrey.resources.object.Object):
     _object_type = "post"
 
     _schema = colander.SchemaNode(colander.Mapping())
     _schema.add(colander.SchemaNode(colander.String(), name='title'))
     _schema.add(colander.SchemaNode(colander.DateTime(), name='dateline',
-                missing=audrey.dateutil.utcnow(zero_seconds=True)))
+                missing=deferred_datetime_now))
     _schema.add(colander.SchemaNode(colander.String(), name='body',
                 is_html=True))
     _schema.add(colander.SchemaNode(
                 audrey.types.Reference(collection='people'),
                 name='author', default=None, missing=None))
+
+    @classmethod
+    def get_class_schema(cls, request=None):
+        return cls._schema.bind()
 
     def get_title(self):
         return getattr(self, 'title', None) or 'Untitled'
