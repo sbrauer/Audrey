@@ -3,7 +3,7 @@ import colander
 class SchemaConverter(object):
     """ Converts a colander schema to a JSON Schema (expressed
     as a data structure consisting of primitive Python types, 
-    suitable from serializing to JSON).
+    suitable for serializing to JSON).
     """
 
     def __init__(self):
