@@ -51,12 +51,6 @@ class Collection(object):
         """
         return cls._object_classes
 
-    # Return a list of data about the desired Mongo indexes for this collection.
-    # The list should contain two-item tuples with data to be passed
-    # to pymongo's Collection.ensure_index() method.
-    # The first item is the ensure_index key_or_list parm.
-    # The second items is a dictionary that will be passed as kwargs.
-    # See http://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.ensure_index
     @classmethod
     def get_mongo_indexes(cls):
         """
