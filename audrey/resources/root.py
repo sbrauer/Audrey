@@ -142,7 +142,7 @@ class Root(object):
         :param id: an ObjectId
         :type id: :class:`bson.objectid.ObjectId`
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
-i       :param fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
+        :param fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         """
         coll = self.get_collection(collection_name)
         if coll is None:
@@ -154,7 +154,7 @@ i       :param fields: like ``fields`` param to :meth:`audrey.resources.collecti
 
         :param reference: a reference
         :type reference: :class:`audrey.resources.reference.Reference`
-i       :param fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
+        :param fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         :rtype: :class:`audrey.resources.object.Object` class or ``None``
         """
         if reference is None:
@@ -262,7 +262,7 @@ i       :param fields: like ``fields`` param to :meth:`audrey.resources.collecti
         * "took": search time in ms
         * "items": a list of dictionaries, each with the keys "object" and highlight"
 
-i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
+        :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         """
         items = []
         for hit in results['hits']['hits']:
@@ -285,7 +285,7 @@ i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.c
         * "took": search time in ms
         * "items": a list of :class:`audrey.resources.object.Object` instances
 
-i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
+        :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         """
         ret = self.get_objects_and_highlights_for_raw_search_results(results, object_fields=object_fields)
         ret['items'] = [item['object'] for item in ret['items']]
@@ -309,8 +309,8 @@ i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.c
         """ A functional basic full text search.
         Also a good example of using the other search methods.
 
-        All parms are optional; calling the method without specifying any parms
-        is querying for anything and everything.
+        All parms are optional. Calling the method without specifying any parms
+        queries for anything and everything.
 
         :param query: a query string that may contain wildcards or boolean operators
         :type query: string
@@ -320,11 +320,11 @@ i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.c
         :type skip: integer
         :param limit: maximum number of results to return
         :type limit: integer
-        :param sort: a :class:`audrey.sortutil.SortSpec` string
+        :param sort: a :class:`audrey.sortutil.SortSpec` string; default sort is by relevance
         :type sort: string or ``None``
         :param highlight_fields: a list of Elastic mapping fields in which to highlight ``search_string`` matches. For example, to highlight matches in Audrey's default full "text" field: ``['text']``
         :type highlight_fields: list of strings, or ``None``
-i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
+        :param object_fields: like ``fields`` param to :meth:`audrey.resources.collection.Collection.get_children`)
         :rtype: dictionary
 
         Returns a dictionary like :meth:`get_objects_and_highlights_for_raw_search_results` when ``highlight_fields``.  Otherwise returns a dictionary like :meth:`get_objects_for_raw_search_results`.
