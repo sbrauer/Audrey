@@ -401,7 +401,6 @@ class Object(object):
         if econn is None: return
         doc = self.get_elastic_index_doc()
         econn.index(doc, self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
-        econn.refresh(self.get_elastic_index_name())
 
     def unindex(self):
         """ Unindex this object in ElasticSearch.
@@ -416,7 +415,6 @@ class Object(object):
         if econn is None: return 0
         try:
             econn.delete(self.get_elastic_index_name(), self.get_elastic_doctype(), str(self._id))
-            econn.refresh(self.get_elastic_index_name())
             return 1
         except pyes.exceptions.NotFoundException, e:
             return 0

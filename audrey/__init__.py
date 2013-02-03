@@ -24,11 +24,12 @@ def audrey_main(root_factory, root_cls, global_config, **settings):
     settings['mongo_uri'] = mongo_uri
     elastic_uri = aslist(settings['elastic_uri'])
     settings['elastic_uri'] = elastic_uri
-    elastic_timeout = float(settings.get('elastic_timeout', '5.0'))
-    settings['elastic_timeout'] = elastic_timeout
     # If "elastic_name" setting not found, fallback to "mongo_name".
     if 'elastic_name' not in settings:
         settings['elastic_name'] = settings['mongo_name']
+
+    elastic_basic_auth_username = settings.get('elastic_basic_auth_username')
+    elastic_basic_auth_password = settings.get('elastic_basic_auth_password')
 
     # Standard Pyramid ZCML configuration.
     config = Configurator(root_factory=root_factory, settings=settings)
@@ -66,7 +67,11 @@ def audrey_main(root_factory, root_cls, global_config, **settings):
     # Not all projects will use Elastic.
     elastic_conn = None
     if elastic_uri:
-        elastic_conn = pyes.ES(elastic_uri, timeout=elastic_timeout)
+        basic_auth = None
+        if elastic_basic_auth_username:
+            basic_auth = dict(username=elastic_basic_auth_username,
+                              password=elastic_basic_auth_password)
+        elastic_conn = pyes.ES(elastic_uri, basic_auth=basic_auth)
         ensure_elastic_index(elastic_conn, settings['elastic_name'], root_cls)
     config.registry.settings['elastic_conn'] = elastic_conn
 
@@ -80,10 +85,14 @@ def ensure_mongo_indexes(db, root_cls):
             mongo_coll.ensure_index(key_or_list, **kwargs)
 
 def ensure_elastic_index(conn, idx_name, root_cls):
-    conn.create_index_if_missing(idx_name)
+    # Not working w/ pyes-0.19.1
+    # See https://github.com/aparo/pyes/issues/69
+    #conn.indices.create_index_if_missing(idx_name)
+    if not conn.indices.exists_index(idx_name):
+        conn.indices.create_index(idx_name)
     for coll_cls in root_cls.get_collection_classes():
         if coll_cls._use_elastic:
-            conn.put_mapping(coll_cls._collection_name, {'properties':coll_cls.get_elastic_mapping()}, [idx_name])
+            conn.indices.put_mapping(coll_cls._collection_name, {'properties':coll_cls.get_elastic_mapping()}, [idx_name])
 
 def main(global_config, **settings):  # pragma: no cover
     return audrey_main(root_factory, root.Root, global_config, **settings)

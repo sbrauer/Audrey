@@ -363,3 +363,7 @@ i       :param object_fields: like ``fields`` param to :meth:`audrey.resources.c
         for coll in self.get_collections():
             count += coll.reindex_all(clear=clear)
         return count
+
+    def refresh_elastic(self):
+        econn = self.get_elastic_connection()
+        econn.indices.refresh(self.get_elastic_index_name())

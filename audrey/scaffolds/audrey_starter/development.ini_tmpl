@@ -28,11 +28,15 @@ configure_zcml = {{package}}:configure.zcml
 # Example: mongo_uri = mongodb://host1 mongodb://host2/ mongodb://host3
 mongo_uri = mongodb://127.0.0.1
 mongo_name = {{package}}
+
 # If not using Elastic, elastic_uri may be empty.
 elastic_uri = thrift://127.0.0.1:9500
 # If elastic_name is unspecified, Audrey will fallback to mongo_name.
 #elastic_name = {{package}}
-#elastic_timeout = 5.0
+
+# If using basic auth, set both username and password.
+#elastic_basic_auth_username = username
+#elastic_basic_auth_password = password
 
 ###
 # wsgi server configuration
