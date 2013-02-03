@@ -35,7 +35,7 @@ class Reference(object):
 
 class IdReference(Reference):
     """ Just a little syntactic sugar around :class:`Reference`
-    with ``serialize_id_only``=``True``.
+    with ``serialize_id_only`` = ``True``.
     """
     def __init__(self, collection, id):
         Reference.__init__(self, collection, id, serialize_id_only=True)
