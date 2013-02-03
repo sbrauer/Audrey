@@ -151,7 +151,7 @@ We've covered creating and updating objects.  Now let's delete one::
 .. _restful-views:
 
 Now let's switch our focus to the web api.  (If you're running locally, you can
-explore the api with HAL-browser by visiting http://127.0.0.1:6543/hal-browser/
+explore the api with HAL-Browser by visiting http://127.0.0.1:6543/hal-browser/
 in your web browser.)  For our current purposes, I'll use curl and Python's super-handy json.tool::
 
     $ curl http://127.0.0.1:6543/ | python -mjson.tool

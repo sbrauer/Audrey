@@ -16,7 +16,7 @@ In a further attempt to be self-describing, links to `JSON Schema
 <http://json-schema.org/>`_ documents (generated automatically from your
 types' colander schemas) are provided for POST and PUT requests.
 (Note that Audrey doesn't provide any HTML views, but it does include
-`HAL-browser <https://github.com/mikekelly/hal-browser>`_ which can be used to 
+`HAL-Browser <https://github.com/mikekelly/hal-browser>`_ which can be used to 
 explore the RESTful API.)
 
 My goal is to keep Audrey otherwise unopinionated.  For example, Audrey
