@@ -18,9 +18,10 @@ If you'd rather keep it old school::
 
     curl http://audreydemo.aws.af.cm
 
-This is running with the example resource models that are setup when you use the Audrey scaffold.  You may want to refer to the `documentation that introduces the RESTful views <https://audrey.readthedocs.org/en/latest/introduction.html#restful-views>`_.  (Please note that the demo doesn't have ElasticSearch enabled.  I'll enable search once I find a free hosting solution.)
+This is running with the example resource models that are setup when you use the Audrey scaffold.  You may want to refer to the `documentation that introduces the RESTful views <https://audrey.readthedocs.org/en/latest/introduction.html#restful-views>`_.
 
-The demo site uses free services from these great providers:
+The demo site uses free services from these providers:
 
 * `AppFog <https://www.appfog.com/>`_
 * `MongoLab <https://mongolab.com/>`_
+* `SearchBox.io <https://searchbox.io/>`_
