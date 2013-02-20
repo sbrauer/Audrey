@@ -7,6 +7,10 @@ Audrey also provides views that implement a RESTful API.  In an attempt to satis
 
 My goal is to keep Audrey otherwise unopinionated.  For example, Audrey intentionally does nothing regarding authentication, authorization, permissions, etc.  A developer building on Audrey can make those decisions as appropriate for their app and implement them using standard Pyramid facilities.
 
+Status
+------
+Audrey is a pet project serving as a playground to explore some ideas. Too soon to tell whether it will mature or not.
+
 Docs and Demo
 -------------
 

@@ -36,7 +36,7 @@ Maybe?
 
 [ ] Rethink use of request throughout resource classes... can we ditch
     it?  grep request resources/*.py
-    *** One the other hand... having access to the request would be handy 
+    *** On the other hand... having access to the request would be handy 
     for things like logging the user ID for certain actions... hmm.
     [ ] Change root_factory and Root so that request.registry.settings is
         passed to Root intead of request (for access to Mongo, Elastic, etc).
@@ -58,3 +58,10 @@ Maybe?
     Example: /galleries/robots/photos/
 
 [ ] Take a closer look at pyelasticsearch as an alternative to pyes
+
+[ ] consider a simpler htmlutil.html_to_text() that uses lxml like so:
+    lxml.html.fromstring(s).text_content()
+    (at the expense of adding dependency on lxml)
+
+[ ] replace is_html attribute with a text_type attribute...
+    with values 'plain' (default), 'html', 'markdown', etc

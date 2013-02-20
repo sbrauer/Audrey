@@ -91,11 +91,11 @@ to a singleton instance of the Collection.
 
 Line 29 overrides the ``_object_classes`` class attribute.  The value of this attribute is a sequence of Object classes representing the types of Objects that may exist in the Collection.  In this case, the People Collection is homogenous and only contains Person Objects.  You can, however, define Collections that may contain multiple Object types (presumably with some common sub-schema).  When creating Object types that will be in a non-homogenous Collection, be sure to set the :attr:`audrey.resources.object.Object._save_object_type_to_mongo` class attribute to ``True``; otherwise the Collection will raise an exception while deserializing from MongoDB since it won't be able to determine the correct Object class to construct.
 
-Lines 31-49 define another Object type and another homogenous Collection.
+Lines 31-61 define another Object type and another homogenous Collection.  The ``Post`` class demonstrates overriding the :meth:`audrey.resources.object.Object.get_class_schema` class method to do deferred schema binding at runtime.
 
-Lines 51-52 define a ``Root`` class that subclasses :class:`audrey.resources.root.Root` and overrides the ``_collection_classes`` class attribute.  The value of this attribute is a sequence of Collection classes representing all the Collections in use in the app.
+Lines 63-64 define a ``Root`` class that subclasses :class:`audrey.resources.root.Root` and overrides the ``_collection_classes`` class attribute.  The value of this attribute is a sequence of Collection classes representing all the Collections in use in the app.
 
-Lines 54-55 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
+Lines 66-67 define a ``root_factory()`` function which returns an instance of ``Root`` for a request.  This function is used by Audrey to configure the Pyramid application to find the traversal root.
 
 If you haven't read the :doc:`introduction` section yet, you may want to now.
 It demonstrates some of the functionality Audrey provides using the 

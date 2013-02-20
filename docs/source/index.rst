@@ -26,8 +26,7 @@ as appropriate for their app and implement them using `standard Pyramid
 facilities <http://docs.pylonsproject.org/projects/pyramid/en/1.4-branch/narr/security.html>`_.
 
 .. warning::
-   Audrey is currently in the pre-alpha development stage.
-   The API is subject to change.
+   Audrey is a pet project serving as a playground to explore some ideas. Too soon to tell whether it will mature or not.
 
 .. toctree::
    :maxdepth: 3
