@@ -14,10 +14,15 @@ to satisfy the hypermedia constraint (HATEOAS), GET responses use the
 `HAL+JSON <http://stateless.co/hal_specification.html>`_ mediatype.
 In a further attempt to be self-describing, links to `JSON Schema
 <http://json-schema.org/>`_ documents (generated automatically from your
-types' colander schemas) are provided for POST and PUT requests.
-(Note that Audrey doesn't provide any HTML views, but it does include
-`HAL-Browser <https://github.com/mikekelly/hal-browser>`_ which can be used to 
-explore the RESTful API.)
+types' colander schemas) are provided which describe the bodies for
+POST and PUT requests.  Audrey doesn't provide any HTML views, but it
+does include `HAL-Browser <https://github.com/mikekelly/hal-browser>`_
+which can be used to explore the RESTful API.  (Please be aware that
+the included API is tightly coupled to your resource models. Such an
+API may be handy for prototypes or even in cases where you control
+all client use, but it is **definitely not recommended for use by
+third-parties**. Creating your own custom versioned API is highly
+recommended.)
 
 My goal is to keep Audrey otherwise unopinionated.  For example, Audrey
 intentionally does nothing regarding authentication, authorization,
